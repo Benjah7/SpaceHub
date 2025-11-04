@@ -1,0 +1,11 @@
+packages:
+  - frontend
+  - backend
+  - packages/*
+
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - bcrypt
+  - core-js
+  - prisma

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: space-hub-postgres
+    environment:
+      POSTGRES_DB: space_hub_dev
+      POSTGRES_USER: space_hub_user
+      POSTGRES_PASSWORD: space_hub_password_dev_123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U space_hub_user -d space_hub_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - space-hub-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: space-hub-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - space-hub-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  space-hub-network:
+    driver: bridge
