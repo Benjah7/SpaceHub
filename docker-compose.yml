@@ -7,10 +7,9 @@ services:
     environment:
       POSTGRES_DB: space_hub_dev
       POSTGRES_USER: space_hub_user
-      POSTGRES_PASSWORD: space_hub_password_dev_123
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_PASSWORD: space_hub_pass123
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
