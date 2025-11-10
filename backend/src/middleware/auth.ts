@@ -49,9 +49,9 @@ export const authenticate = async (
 
         // Attach user to request
         req.user = user;
-        next();
+        return next();  // ADD RETURN HERE
     } catch (error) {
-        res.status(401).json(
+        return res.status(401).json(
             ApiResponse.error('Invalid or expired token')
         );
     }
@@ -75,7 +75,7 @@ export const authorize = (...roles: string[]) => {
             );
         }
 
-        next();
+        return next();  // RETURN HERE TOO
     };
 };
 
@@ -85,7 +85,7 @@ export const authorize = (...roles: string[]) => {
  */
 export const optionalAuth = async (
     req: Request,
-    res: Response,
+    _res: Response,
     next: NextFunction
 ) => {
     try {
@@ -113,5 +113,5 @@ export const optionalAuth = async (
         // Silently fail - user remains undefined
     }
 
-    next();
+    return next();  // ADD RETURN HERE TOO
 };

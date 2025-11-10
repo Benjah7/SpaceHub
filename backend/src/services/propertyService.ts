@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../utils/apiResponse';
 import { CreatePropertyDTO, UpdatePropertyDTO } from '../types';
 import { RedisService } from './redisService';
@@ -23,7 +23,7 @@ export class PropertyService {
         ST_SetSRID(ST_MakePoint(${data.longitude}, ${data.latitude}), 4326)::geography,
         ${data.longitude}, ${data.latitude}, ${data.monthlyRent}, ${data.squareFeet},
         ${data.bedrooms || 0}, ${data.bathrooms || 0}, ${data.description},
-        ${data.amenities}::text[], ${data.propertyType}, ${ownerId},
+        ${data.amenities}::text[], ${data.propertyType}::"PropertyType", ${ownerId},
         NOW(), NOW()
       )
       RETURNING id, "propertyName", address, neighborhood, longitude, latitude,

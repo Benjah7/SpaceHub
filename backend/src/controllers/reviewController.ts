@@ -90,9 +90,9 @@ export const getPropertyReviews = asyncHandler(async (req: Request, res: Respons
     ]);
 
     // Calculate average rating
-    const avgRating = reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        : 0;
+    // const _avgRating = reviews.length > 0
+    //     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    //     : 0;
 
     res.json(
         ApiResponse.paginated(

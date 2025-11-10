@@ -152,7 +152,7 @@ export const getPropertyAnalytics = asyncHandler(async (req: Request, res: Respo
         ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
         : 0;
 
-    res.json(
+    return res.json(
         ApiResponse.success({
             property: {
                 id: property.id,
@@ -173,7 +173,7 @@ export const getPropertyAnalytics = asyncHandler(async (req: Request, res: Respo
  * Get platform statistics (Admin only)
  * GET /api/analytics/platform
  */
-export const getPlatformStats = asyncHandler(async (req: Request, res: Response) => {
+export const getPlatformStats = asyncHandler(async (_req: Request, res: Response) => {
     const [
         totalUsers,
         totalProperties,

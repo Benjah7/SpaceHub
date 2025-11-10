@@ -20,7 +20,7 @@ export const getNotifications = asyncHandler(async (req: Request, res: Response)
         ...(unreadOnly && { read: false })
     };
 
-    const [notifications, total, unreadCount] = await Promise.all([
+    const [notifications, total, _unreadCount] = await Promise.all([
         prisma.notification.findMany({
             where,
             orderBy: { createdAt: 'desc' },

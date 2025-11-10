@@ -46,7 +46,7 @@ const documentFilter = (_req: Request, file: Express.Multer.File, cb: FileFilter
 /**
  * Upload middleware for property images
  */
-export const uploadPropertyImages: ReturnType<typeof multer>['array'] = multer({
+export const uploadPropertyImages = multer({
     storage,
     fileFilter: imageFilter,
     limits: {
@@ -58,7 +58,7 @@ export const uploadPropertyImages: ReturnType<typeof multer>['array'] = multer({
 /**
  * Upload middleware for profile image
  */
-export const uploadProfileImage: ReturnType<typeof multer>['single'] = multer({
+export const uploadProfileImage = multer({
     storage,
     fileFilter: imageFilter,
     limits: {
@@ -70,7 +70,7 @@ export const uploadProfileImage: ReturnType<typeof multer>['single'] = multer({
 /**
  * Upload middleware for documents
  */
-export const uploadDocument: ReturnType<typeof multer>['single'] = multer({
+export const uploadDocument = multer({
     storage,
     fileFilter: documentFilter,
     limits: {

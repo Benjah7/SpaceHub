@@ -19,7 +19,7 @@ export const handleValidationErrors = (
         );
     }
 
-    next();
+    return next();
 };
 
 /**

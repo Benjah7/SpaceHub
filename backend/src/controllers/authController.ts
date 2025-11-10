@@ -48,7 +48,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
  * Logout user
  * POST /api/auth/logout
  */
-export const logout = asyncHandler(async (req: Request, res: Response) => {
+export const logout = asyncHandler(async (_req: Request, res: Response) => {
     res.clearCookie('token');
     res.json(
         ApiResponse.success(null, 'Logout successful')
@@ -85,9 +85,10 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
  */
 export const uploadProfileImage = asyncHandler(async (req: Request, res: Response) => {
     if (!req.file) {
-        return res.status(400).json(
+        res.status(400).json(
             ApiResponse.error('No image file provided')
         );
+        return; // Add explicit return
     }
 
     const user = await CloudinaryService.uploadProfileImage(req.file, req.user!.id);

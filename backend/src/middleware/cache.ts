@@ -50,7 +50,7 @@ export const cache = (duration: number = 300) => {
  * Invalidates cache keys matching pattern after successful mutation
  */
 export const invalidateCache = (...patterns: string[]) => {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (_req: Request, res: Response, next: NextFunction) => {
         // Store original json method
         const originalJson = res.json.bind(res);
 

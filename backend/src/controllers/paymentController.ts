@@ -117,7 +117,7 @@ export const getPaymentById = asyncHandler(async (req: Request, res: Response) =
         );
     }
 
-    res.json(
+    return res.json(
         ApiResponse.success(payment, 'Payment retrieved')
     );
 });

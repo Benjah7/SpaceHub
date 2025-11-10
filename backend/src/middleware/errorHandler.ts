@@ -7,7 +7,7 @@ import { ApiError, ApiResponse } from '../utils/apiResponse';
  */
 export const errorHandler = (
   err: Error | ApiError,
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -53,6 +53,7 @@ export const errorHandler = (
         : err.message
     )
   );
+  return next();
 };
 
 /**
@@ -66,19 +67,19 @@ const handlePrismaError = (err: Prisma.PrismaClientKnownRequestError, res: Respo
       return res.status(409).json(
         ApiResponse.error(`${field} already exists`)
       );
-    
+
     case 'P2025':
       // Record not found
       return res.status(404).json(
         ApiResponse.error('Record not found')
       );
-    
+
     case 'P2003':
       // Foreign key constraint violation
       return res.status(400).json(
         ApiResponse.error('Invalid reference')
       );
-    
+
     default:
       return res.status(500).json(
         ApiResponse.error('Database error')

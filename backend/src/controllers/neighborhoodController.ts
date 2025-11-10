@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/apiResponse';
 import { PrismaClient } from '@prisma/client';
-import { cache } from '../middleware/cache';
-import { CACHE_DURATIONS } from '../utils/constants';
+
 
 const prisma = new PrismaClient();
 
@@ -11,7 +10,7 @@ const prisma = new PrismaClient();
  * Get all neighborhoods
  * GET /api/neighborhoods
  */
-export const getNeighborhoods = asyncHandler(async (req: Request, res: Response) => {
+export const getNeighborhoods = asyncHandler(async (_req: Request, res: Response) => {
     const neighborhoods = await prisma.neighborhood.findMany({
         orderBy: { name: 'asc' }
     });
@@ -43,7 +42,7 @@ export const getNeighborhoodById = asyncHandler(async (req: Request, res: Respon
         where: { neighborhood: neighborhood.name }
     });
 
-    res.json(
+    return res.json(
         ApiResponse.success(
             { ...neighborhood, propertyCount },
             'Neighborhood retrieved successfully'
