@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-neutral-border;
+  }
+  
+  body {
+    @apply bg-neutral-bg text-neutral-text-primary antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-neutral-text-primary;
+  }
+}
+
+@layer components {
+  /* Button Styles */
+  .btn {
+    @apply px-lg py-3 rounded-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-accent text-white hover:bg-opacity-90 focus:ring-brand-accent;
+  }
+
+  .btn-secondary {
+    @apply btn bg-transparent border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white focus:ring-brand-primary;
+  }
+
+  .btn-text {
+    @apply px-md py-2 text-brand-primary hover:underline transition-all duration-200;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-neutral-surface border border-neutral-border rounded-md p-md shadow-card hover:shadow-card-hover transition-shadow duration-200;
+  }
+
+  /* Input Styles */
+  .input {
+    @apply w-full px-md py-3 border-2 border-neutral-border rounded-sm text-body bg-neutral-surface focus:outline-none focus:border-brand-primary transition-colors duration-200;
+  }
+
+  .input-error {
+    @apply border-status-error focus:border-status-error;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-tiny font-semibold;
+  }
+
+  .badge-success {
+    @apply badge bg-status-success bg-opacity-10 text-status-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-status-warning bg-opacity-10 text-status-warning;
+  }
+
+  .badge-error {
+    @apply badge bg-status-error bg-opacity-10 text-status-error;
+  }
+
+  .badge-info {
+    @apply badge bg-status-info bg-opacity-10 text-status-info;
+  }
+
+  /* Container */
+  .container-custom {
+    @apply max-w-container mx-auto px-md sm:px-lg lg:px-xl;
+  }
+
+  /* Link Styles */
+  .link {
+    @apply text-brand-primary hover:underline transition-all duration-200;
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    @apply inline-block w-6 h-6 border-4 border-neutral-border border-t-brand-primary rounded-full animate-spin;
+  }
+}
+
+@layer utilities {
+  /* Custom Scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-neutral-bg;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-neutral-border rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-text-secondary;
+  }
+
+  /* Text Truncate */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
