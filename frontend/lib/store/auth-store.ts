@@ -19,8 +19,7 @@ interface AuthState {
 interface SignupData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   phone: string;
   role: 'OWNER' | 'TENANT';
 }
@@ -70,7 +69,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const response = await apiClient.post<{ user: User; token: string }>(
-            '/auth/signup',
+            '/auth/register',
             data
           );
 

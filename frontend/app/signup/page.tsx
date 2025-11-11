@@ -80,8 +80,7 @@ export default function SignupPage() {
       await signup({
         email: formData.email,
         password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        name: `${formData.firstName} ${formData.lastName}`,
         phone: formData.phone,
         role: formData.role,
       });
