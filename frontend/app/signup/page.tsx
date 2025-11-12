@@ -4,103 +4,69 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Phone, Eye, EyeOff, Building2, UserCircle } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, Building2, UserCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/lib/store/auth-store';
-import toast from 'react-hot-toast';
+import { signupSchema, type SignupFormData } from '@/lib/schemas/auth-schema';
+import { ErrorHandler } from '@/lib/utils/error-handler';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
+import type { ApiError } from '@/types';
 
 type UserRole = 'TENANT' | 'OWNER';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, isLoading } = useAuthStore();
+  const { signup: registerUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    role: 'TENANT' as UserRole,
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+    setValue,
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
-    }
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^(\+254|0)?[17]\d{8}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid Kenyan phone number';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain uppercase, lowercase, and number';
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      await signup({
-        email: formData.email,
-        password: formData.password,
-        name: `${formData.firstName} ${formData.lastName}`,
-        phone: formData.phone,
-        role: formData.role,
-      });
-      toast.success('Account created successfully!');
-      router.push(formData.role === 'OWNER' ? '/dashboard' : '/listings');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create account');
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
-    }
-  };
 
   const handleRoleSelect = (role: UserRole) => {
-    setFormData((prev) => ({ ...prev, role }));
+    setSelectedRole(role);
+    setValue('role', role);
+  };
+
+  const onSubmit = async (data: SignupFormData) => {
+    try {
+      // Transform data for API: combine firstName and lastName into name, remove confirmPassword
+      const { firstName, lastName, confirmPassword, ...rest } = data;
+      const registerData = {
+        ...rest,
+        name: `${firstName} ${lastName}`.trim(),
+      };
+      
+      await registerUser(registerData);
+      toast.success('Account created successfully!');
+      router.push(data.role === 'OWNER' ? '/dashboard' : '/listings');
+    } catch (error) {
+      const apiError = error as ApiError;
+      
+      // Handle field-level errors from backend
+      if (apiError.errors) {
+        const fieldErrors = ErrorHandler.parseValidationErrors(apiError.errors);
+        Object.entries(fieldErrors).forEach(([field, message]) => {
+          setError(field as keyof SignupFormData, { message });
+        });
+      }
+      
+      // Show general error
+      ErrorHandler.handle(error, 'Failed to create account');
+    }
   };
 
   return (
@@ -123,7 +89,7 @@ export default function SignupPage() {
 
           {/* Role Selection */}
           <div className="mb-xl">
-            <label className="block text-small font-medium mb-md">
+            <label className="block text-small font-medium mb-md text-neutral-text-primary">
               I want to: <span className="text-status-error">*</span>
             </label>
             <div className="grid grid-cols-2 gap-md">
@@ -132,7 +98,7 @@ export default function SignupPage() {
                 onClick={() => handleRoleSelect('TENANT')}
                 className={cn(
                   'p-lg rounded-lg border-2 transition-all',
-                  formData.role === 'TENANT'
+                  selectedRole === 'TENANT'
                     ? 'border-brand-primary bg-brand-primary/10'
                     : 'border-neutral-border hover:border-brand-primary/50'
                 )}
@@ -151,7 +117,7 @@ export default function SignupPage() {
                 onClick={() => handleRoleSelect('OWNER')}
                 className={cn(
                   'p-lg rounded-lg border-2 transition-all',
-                  formData.role === 'OWNER'
+                  selectedRole === 'OWNER'
                     ? 'border-brand-primary bg-brand-primary/10'
                     : 'border-neutral-border hover:border-brand-primary/50'
                 )}
@@ -165,78 +131,74 @@ export default function SignupPage() {
                 </p>
               </motion.button>
             </div>
+            {errors.role && (
+              <p className="text-tiny text-status-error mt-2">{errors.role.message}</p>
+            )}
           </div>
 
           {/* Signup Form */}
-          <form onSubmit={handleSubmit} className="space-y-lg">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-lg">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
               <Input
                 label="First Name"
                 type="text"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                error={errors.firstName}
+                {...register('firstName')}
+                error={errors.firstName?.message}
                 placeholder="John"
                 leftIcon={<User className="w-5 h-5" />}
-                required
+                disabled={isSubmitting}
               />
 
               <Input
                 label="Last Name"
                 type="text"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                error={errors.lastName}
+                {...register('lastName')}
+                error={errors.lastName?.message}
                 placeholder="Doe"
                 leftIcon={<User className="w-5 h-5" />}
-                required
+                disabled={isSubmitting}
               />
             </div>
 
             <Input
               label="Email Address"
               type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              error={errors.email}
+              {...register('email')}
+              error={errors.email?.message}
               placeholder="you@example.com"
               leftIcon={<Mail className="w-5 h-5" />}
-              required
+              autoComplete="email"
+              disabled={isSubmitting}
             />
 
             <Input
               label="Phone Number"
               type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              error={errors.phone}
+              {...register('phone')}
+              error={errors.phone?.message}
               placeholder="+254 712 345 678"
               leftIcon={<Phone className="w-5 h-5" />}
-              helperText="Enter Kenyan phone number"
-              required
+              helperText="Enter Kenyan phone number in format +254XXXXXXXXX"
+              disabled={isSubmitting}
             />
 
             <div className="relative">
               <Input
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                error={errors.password}
+                {...register('password')}
+                error={errors.password?.message}
                 placeholder="••••••••"
                 leftIcon={<Lock className="w-5 h-5" />}
-                helperText="Min. 8 characters with uppercase, lowercase & number"
-                required
+                helperText="Min. 8 characters with uppercase, lowercase, and number"
+                autoComplete="new-password"
+                disabled={isSubmitting}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[42px] text-neutral-text-secondary hover:text-neutral-text-primary"
+                className="absolute right-3 top-[38px] text-neutral-text-secondary hover:text-neutral-text-primary transition-colors"
+                tabIndex={-1}
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -250,18 +212,18 @@ export default function SignupPage() {
               <Input
                 label="Confirm Password"
                 type={showConfirmPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={errors.confirmPassword}
+                {...register('confirmPassword')}
+                error={errors.confirmPassword?.message}
                 placeholder="••••••••"
                 leftIcon={<Lock className="w-5 h-5" />}
-                required
+                autoComplete="new-password"
+                disabled={isSubmitting}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[42px] text-neutral-text-secondary hover:text-neutral-text-primary"
+                className="absolute right-3 top-[38px] text-neutral-text-secondary hover:text-neutral-text-primary transition-colors"
+                tabIndex={-1}
               >
                 {showConfirmPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -276,14 +238,21 @@ export default function SignupPage() {
                 type="checkbox"
                 required
                 className="w-4 h-4 mt-1 text-brand-primary rounded focus:ring-brand-primary"
+                disabled={isSubmitting}
               />
               <label className="text-small text-neutral-text-secondary">
                 I agree to the{' '}
-                <Link href="/terms" className="text-brand-primary hover:underline">
+                <Link
+                  href="/terms"
+                  className="text-brand-primary hover:text-brand-secondary"
+                >
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-brand-primary hover:underline">
+                <Link
+                  href="/privacy"
+                  className="text-brand-primary hover:text-brand-secondary"
+                >
                   Privacy Policy
                 </Link>
               </label>
@@ -293,22 +262,31 @@ export default function SignupPage() {
               type="submit"
               variant="primary"
               fullWidth
-              isLoading={isLoading}
+              isLoading={isSubmitting}
+              disabled={isSubmitting}
             >
-              Create Account
+              {isSubmitting ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
 
-          {/* Sign In Link */}
-          <p className="text-center text-small text-neutral-text-secondary mt-xl">
-            Already have an account?{' '}
-            <Link
-              href="/login"
-              className="text-brand-primary font-medium hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
+          {/* Divider */}
+          <div className="relative my-lg">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-neutral-border" />
+            </div>
+            <div className="relative flex justify-center text-small">
+              <span className="px-2 bg-white text-neutral-text-secondary">
+                Already have an account?
+              </span>
+            </div>
+          </div>
+
+          {/* Login Link */}
+          <Link href="/login">
+            <Button variant="secondary" fullWidth>
+              Log In
+            </Button>
+          </Link>
         </Card>
       </motion.div>
     </div>
