@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, MapPin, Building2, CreditCard, ArrowRight } from 'lucide-react';
+import { Search, Filter, Building2, CreditCard, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PropertyCard } from '@/components/property/PropertyCard';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { useRouter } from 'next/navigation';
-import type { Property } from '@/types';
+import { PropertyStatus, PropertyType, type Property } from '@/types';
 
 // Animation variants
 const containerVariants = {
@@ -39,8 +39,8 @@ const mockFeaturedProperties: Property[] = [
     id: '1',
     title: 'Modern Retail Space - Westlands',
     description: 'Prime commercial space in the heart of Westlands with high foot traffic',
-    propertyType: 'SHOP',
-    status: 'AVAILABLE',
+    propertyType: PropertyType.SHOP,
+    status: PropertyStatus.AVAILABLE,
     price: 80000,
     size: 45,
     location: {

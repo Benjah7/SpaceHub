@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -125,14 +125,22 @@ export default function ListingsPage() {
       );
 
       if (response.success && response.data) {
-        setProperties(response.data.data);
-        setPagination(response.data.pagination);
+        // Ensure data is always an array
+        setProperties(Array.isArray(response.data.data) ? response.data.data : []);
+        // Ensure pagination has all required fields
+        setPagination({
+          page: response.data.pagination?.page || 1,
+          limit: response.data.pagination?.limit || ITEMS_PER_PAGE,
+          total: response.data.pagination?.total || 0,
+          totalPages: response.data.pagination?.totalPages || 0,
+        });
       } else {
         throw new Error(response.message || 'Failed to fetch properties');
       }
     } catch (err) {
       const errorMessage = 'Failed to load properties';
       setError(errorMessage);
+      setProperties([]); // Reset to empty array on error
       ErrorHandler.handle(err, errorMessage);
     } finally {
       setLoading(false);
@@ -143,17 +151,17 @@ export default function ListingsPage() {
     fetchProperties(1);
   }, [fetchProperties]);
 
-  const debouncedSearchRef = useCallback(
+  // Use useRef to store the debounced function
+  const debouncedSearchRef = useRef(
     debounce((query: string) => {
       setFilters(prev => ({ ...prev, location: query }));
-    }, 500),
-    []
+    }, 500)
   );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    debouncedSearchRef(value);
+    debouncedSearchRef.current(value);
   };
 
   const handlePageChange = (page: number) => {
@@ -239,7 +247,7 @@ export default function ListingsPage() {
               'Loading...'
             ) : (
               <>
-                Showing {properties.length} of {pagination.total} properties
+                Showing {properties?.length || 0} of {pagination?.total || 0} properties
                 {activeFiltersCount > 0 && ` (${activeFiltersCount} filters active)`}
               </>
             )}
@@ -284,13 +292,13 @@ export default function ListingsPage() {
 
             <Button
               variant="secondary"
-              className="md:hidden"
+              leftIcon={<Filter />}
               onClick={() => setShowFilters(!showFilters)}
-              leftIcon={<Filter className="w-5 h-5" />}
+              className="md:hidden"
             >
               Filters
               {activeFiltersCount > 0 && (
-                <Badge variant="error" animated className="ml-2">
+                <Badge className="ml-2">
                   {activeFiltersCount}
                 </Badge>
               )}
@@ -298,35 +306,39 @@ export default function ListingsPage() {
 
             {activeFiltersCount > 0 && (
               <Button
-                variant="secondary"
+                variant="text"
+                leftIcon={<X />}
                 onClick={handleClearFilters}
-                leftIcon={<X className="w-5 h-5" />}
+                className="hidden md:flex"
               >
-                Clear
+                Clear Filters
               </Button>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-xl">
+        <div className="flex gap-lg">
           <AnimatePresence>
             {showFilters && (
               <motion.aside
-                className="w-full md:w-80 flex-shrink-0"
-                initial={{ x: -300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -300, opacity: 0 }}
-                transition={{ type: 'spring', damping: 20 }}
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 'auto', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                className="hidden md:block w-80 flex-shrink-0"
               >
-                <Card className="p-lg sticky top-4">
+                <Card className="p-lg sticky top-24">
                   <div className="flex items-center justify-between mb-lg">
-                    <h2 className="text-h3 font-semibold">Filters</h2>
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="md:hidden p-2 hover:bg-neutral-surface rounded-lg transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+                    <h3 className="text-h4">Filters</h3>
+                    {activeFiltersCount > 0 && (
+                      <Button
+                        variant="text"
+                        size="sm"
+                        leftIcon={<X className="w-4 h-4" />}
+                        onClick={handleClearFilters}
+                      >
+                        Clear
+                      </Button>
+                    )}
                   </div>
 
                   <div className="space-y-lg">
