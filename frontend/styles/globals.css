@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Import distinctive fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200;12..96,300;12..96,400;12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,30 +12,55 @@
   
   body {
     @apply bg-neutral-bg text-neutral-text-primary antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-weight: 400;
   }
 
+  /* Headings use Bricolage Grotesque with extreme weights */
   h1, h2, h3, h4, h5, h6 {
     @apply text-neutral-text-primary;
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+
+  h1 {
+    @apply text-h1 font-black tracking-tight;
+  }
+
+  h2 {
+    @apply text-h2 font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-h3 font-bold;
+  }
+
+  /* Price and data elements use monospace */
+  .price, .data-value {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
 @layer components {
-  /* Button Styles */
+  /* Button Styles - Updated typography */
   .btn {
     @apply px-lg py-3 rounded-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    font-family: 'IBM Plex Sans', sans-serif;
+    letter-spacing: 0.02em;
   }
 
   .btn-primary {
     @apply btn bg-brand-accent text-white hover:bg-opacity-90 focus:ring-brand-accent;
+    font-weight: 500;
   }
 
   .btn-secondary {
     @apply btn bg-transparent border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white focus:ring-brand-primary;
+    font-weight: 500;
   }
 
   .btn-text {
     @apply px-md py-2 text-brand-primary hover:underline transition-all duration-200;
+    font-weight: 500;
   }
 
   /* Card Styles */
@@ -45,6 +71,8 @@
   /* Input Styles */
   .input {
     @apply w-full px-md py-3 border-2 border-neutral-border rounded-sm text-body bg-neutral-surface focus:outline-none focus:border-brand-primary transition-colors duration-200;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 400;
   }
 
   .input-error {
@@ -54,6 +82,9 @@
   /* Badge Styles */
   .badge {
     @apply inline-flex items-center px-3 py-1 rounded-full text-tiny font-semibold;
+    font-family: 'IBM Plex Sans', sans-serif;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
 
   .badge-success {
@@ -80,11 +111,64 @@
   /* Link Styles */
   .link {
     @apply text-brand-primary hover:underline transition-all duration-200;
+    font-weight: 500;
   }
 
   /* Loading Spinner */
   .spinner {
     @apply inline-block w-6 h-6 border-4 border-neutral-border border-t-brand-primary rounded-full animate-spin;
+  }
+
+  /* Typography Utilities */
+  .heading-display {
+    @apply text-display font-black tracking-tight;
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+
+  .heading-hero {
+    @apply text-h1 font-black tracking-tight;
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+
+  .text-price-large {
+    @apply font-bold text-brand-accent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .text-price {
+    @apply font-bold text-brand-accent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    line-height: 1.3;
+  }
+
+  .text-data {
+    @apply font-medium;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* Label styles with distinctive typography */
+  .label {
+    @apply text-body-sm font-medium text-neutral-text-primary;
+    font-family: 'IBM Plex Sans', sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  /* Stat number display */
+  .stat-number {
+    @apply text-h1 font-black tracking-tight text-brand-primary;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Section heading */
+  .section-heading {
+    @apply text-h2 font-bold tracking-tight mb-lg;
+    font-family: 'Bricolage Grotesque', sans-serif;
   }
 }
 
@@ -119,6 +203,15 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  /* Extreme weight utilities */
+  .font-thin {
+    font-weight: 200;
+  }
+
+  .font-black {
+    font-weight: 800;
   }
 }
 
