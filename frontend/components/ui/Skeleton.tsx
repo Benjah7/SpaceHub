@@ -191,3 +191,16 @@ export const FormSkeleton: React.FC<{ fields?: number }> = ({ fields = 5 }) => {
     </div>
   );
 };
+
+/**
+ * List skeleton (multiple items)
+ */
+export const ListSkeleton: React.FC<{ count?: number }> = ({ count = 5 }) => {
+  return (
+    <div className="space-y-md">
+      {[...Array(count)].map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
+};

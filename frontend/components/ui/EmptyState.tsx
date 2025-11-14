@@ -1,76 +1,92 @@
+// frontend/components/ui/EmptyState.tsx
 'use client';
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from './Button';
 
 interface EmptyStateProps {
-  icon: React.ReactNode;
+  icon: LucideIcon;
   title: string;
   description: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-    variant?: 'primary' | 'secondary';
-  };
-  className?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  actionHref?: string;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
+  secondaryActionHref?: string;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon,
+  icon: Icon,
   title,
   description,
-  action,
-  className = '',
+  actionLabel,
+  onAction,
+  actionHref,
+  secondaryActionLabel,
+  onSecondaryAction,
+  secondaryActionHref,
 }) => {
   return (
     <motion.div
-      className={`text-center py-3xl px-lg ${className}`}
+      className="flex flex-col items-center justify-center py-3xl px-lg text-center"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.4 }}
     >
       <motion.div
-        className="w-24 h-24 mx-auto mb-lg text-neutral-border"
+        className="w-24 h-24 rounded-full bg-neutral-bg flex items-center justify-center mb-lg"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+        transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
       >
-        {icon}
+        <Icon className="w-12 h-12 text-neutral-text-secondary" />
       </motion.div>
 
       <motion.h3
-        className="text-h2 text-neutral-text-primary mb-md"
+        className="text-h3 font-semibold mb-md"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.3 }}
       >
         {title}
       </motion.h3>
 
       <motion.p
-        className="text-body text-neutral-text-secondary mb-lg max-w-md mx-auto"
+        className="text-body text-neutral-text-secondary max-w-md mb-lg"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.4 }}
       >
         {description}
       </motion.p>
 
-      {action && (
+      {(actionLabel && (onAction || actionHref)) && (
         <motion.div
+          className="flex flex-col sm:flex-row gap-md"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.5 }}
         >
-          <Button
-            variant={action.variant || 'primary'}
-            onClick={action.onClick}
-          >
-            {action.label}
+          <Button variant="primary" onClick={onAction} href={actionHref}>
+            {actionLabel}
           </Button>
+
+          {(secondaryActionLabel && (onSecondaryAction || secondaryActionHref)) && (
+            <Button
+              variant="secondary"
+              onClick={onSecondaryAction}
+              href={secondaryActionHref}
+            >
+              {secondaryActionLabel}
+            </Button>
+          )}
         </motion.div>
       )}
     </motion.div>
   );
 };
+
+EmptyState.displayName = 'EmptyState';

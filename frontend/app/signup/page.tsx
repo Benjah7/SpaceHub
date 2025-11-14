@@ -7,21 +7,36 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, Lock, Eye, EyeOff, Building2, UserCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { signupSchema, type SignupFormData } from '@/lib/schemas/auth-schema';
 import { ErrorHandler } from '@/lib/utils/error-handler';
+import { useLanguageStore } from '@/lib/store/language-store';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
-import type { ApiError } from '@/types';
+
+const signupSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  phone: z.string().regex(/^\+254[17]\d{8}$/, 'Invalid Kenyan phone number (e.g., +254712345678)'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+  role: z.enum(['OWNER', 'TENANT'], { required_error: 'Please select a role' }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
 
 type UserRole = 'TENANT' | 'OWNER';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup: registerUser } = useAuthStore();
+  const { signup } = useAuthStore();
+  const { t } = useLanguageStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
@@ -30,8 +45,8 @@ export default function SignupPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
     setValue,
+    watch,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
   });
@@ -43,250 +58,221 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupFormData) => {
     try {
-      // Transform data for API: combine firstName and lastName into name, remove confirmPassword
-      const { firstName, lastName, confirmPassword, ...rest } = data;
-      const registerData = {
-        ...rest,
-        name: `${firstName} ${lastName}`.trim(),
-      };
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...signupData } = data;
+      await signup(signupData);
       
-      await registerUser(registerData);
-      toast.success('Account created successfully!');
+      toast.success(t('auth.signupSuccess'));
       router.push(data.role === 'OWNER' ? '/dashboard' : '/listings');
     } catch (error) {
-      const apiError = error as ApiError;
-      
-      // Handle field-level errors from backend
-      if (apiError.errors) {
-        const fieldErrors = ErrorHandler.parseValidationErrors(apiError.errors);
-        Object.entries(fieldErrors).forEach(([field, message]) => {
-          setError(field as keyof SignupFormData, { message });
-        });
-      }
-      
-      // Show general error
-      ErrorHandler.handle(error, 'Failed to create account');
+      ErrorHandler.handle(error, 'Signup failed');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-primary to-status-info flex items-center justify-center p-4 py-xl">
+    <div className="min-h-screen bg-neutral-bg flex items-center justify-center py-xl px-md">
       <motion.div
         className="w-full max-w-2xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
       >
-        <Card className="p-xl">
-          {/* Header */}
-          <div className="text-center mb-xl">
-            <h1 className="text-h1 text-brand-primary mb-2">Space Hub</h1>
-            <h2 className="text-h2 mb-md">Create Your Account</h2>
-            <p className="text-body text-neutral-text-secondary">
-              Join Space Hub to find or list properties
-            </p>
-          </div>
+        <div className="text-center mb-xl">
+          <h1 className="text-h1 mb-md">{t('auth.signup')}</h1>
+          <p className="text-body text-neutral-text-secondary">
+            Create your account to get started
+          </p>
+        </div>
 
-          {/* Role Selection */}
-          <div className="mb-xl">
-            <label className="block text-small font-medium mb-md text-neutral-text-primary">
-              I want to: <span className="text-status-error">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-md">
-              <motion.button
-                type="button"
-                onClick={() => handleRoleSelect('TENANT')}
-                className={cn(
-                  'p-lg rounded-lg border-2 transition-all',
-                  selectedRole === 'TENANT'
-                    ? 'border-brand-primary bg-brand-primary/10'
-                    : 'border-neutral-border hover:border-brand-primary/50'
+        <Card>
+          <div className="p-xl">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-lg">
+              {/* Role Selection */}
+              <div>
+                <label className="block text-small font-medium text-neutral-text-primary mb-md">
+                  {t('auth.selectRole')} <span className="text-status-error">*</span>
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                  <motion.button
+                    type="button"
+                    onClick={() => handleRoleSelect('OWNER')}
+                    className={cn(
+                      'p-lg border-2 rounded-lg transition-all text-left',
+                      selectedRole === 'OWNER'
+                        ? 'border-brand-primary bg-brand-primary/5'
+                        : 'border-neutral-border hover:border-brand-primary/50'
+                    )}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Building2 className={cn(
+                      'w-8 h-8 mb-md',
+                      selectedRole === 'OWNER' ? 'text-brand-primary' : 'text-neutral-text-secondary'
+                    )} />
+                    <h3 className="text-body font-semibold mb-1">
+                      {t('auth.iAmOwner')}
+                    </h3>
+                    <p className="text-small text-neutral-text-secondary">
+                      List and manage properties
+                    </p>
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    onClick={() => handleRoleSelect('TENANT')}
+                    className={cn(
+                      'p-lg border-2 rounded-lg transition-all text-left',
+                      selectedRole === 'TENANT'
+                        ? 'border-brand-primary bg-brand-primary/5'
+                        : 'border-neutral-border hover:border-brand-primary/50'
+                    )}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <UserCircle className={cn(
+                      'w-8 h-8 mb-md',
+                      selectedRole === 'TENANT' ? 'text-brand-primary' : 'text-neutral-text-secondary'
+                    )} />
+                    <h3 className="text-body font-semibold mb-1">
+                      {t('auth.iAmTenant')}
+                    </h3>
+                    <p className="text-small text-neutral-text-secondary">
+                      Search and rent properties
+                    </p>
+                  </motion.button>
+                </div>
+                {errors.role && (
+                  <p className="text-tiny text-status-error mt-1">
+                    {errors.role.message}
+                  </p>
                 )}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <UserCircle className="w-12 h-12 mx-auto mb-md text-brand-primary" />
-                <p className="text-h3 font-semibold mb-1">Find a Property</p>
+              </div>
+
+              {/* Personal Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <Input
+                  label="Full Name"
+                  type="text"
+                  placeholder="John Doe"
+                  leftIcon={<User className="w-5 h-5" />}
+                  error={errors.name?.message}
+                  {...register('name')}
+                />
+
+                <Input
+                  label={t('auth.phone')}
+                  type="tel"
+                  placeholder="+254712345678"
+                  leftIcon={<Phone className="w-5 h-5" />}
+                  error={errors.phone?.message}
+                  {...register('phone')}
+                />
+              </div>
+
+              <Input
+                label={t('auth.email')}
+                type="email"
+                placeholder="your@email.com"
+                leftIcon={<Mail className="w-5 h-5" />}
+                error={errors.email?.message}
+                {...register('email')}
+              />
+
+              {/* Password Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="relative">
+                  <Input
+                    label={t('auth.password')}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    leftIcon={<Lock className="w-5 h-5" />}
+                    error={errors.password?.message}
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-[42px] text-neutral-text-secondary hover:text-neutral-text-primary"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Input
+                    label={t('auth.confirmPassword')}
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    leftIcon={<Lock className="w-5 h-5" />}
+                    error={errors.confirmPassword?.message}
+                    {...register('confirmPassword')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-[42px] text-neutral-text-secondary hover:text-neutral-text-primary"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Terms & Conditions */}
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-1 w-4 h-4 text-brand-primary rounded focus:ring-brand-primary"
+                />
                 <p className="text-small text-neutral-text-secondary">
-                  Search and rent retail spaces
+                  I agree to the{' '}
+                  <Link href="/terms" className="text-brand-primary hover:underline">
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="text-brand-primary hover:underline">
+                    Privacy Policy
+                  </Link>
                 </p>
-              </motion.button>
+              </div>
 
-              <motion.button
-                type="button"
-                onClick={() => handleRoleSelect('OWNER')}
-                className={cn(
-                  'p-lg rounded-lg border-2 transition-all',
-                  selectedRole === 'OWNER'
-                    ? 'border-brand-primary bg-brand-primary/10'
-                    : 'border-neutral-border hover:border-brand-primary/50'
-                )}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
               >
-                <Building2 className="w-12 h-12 mx-auto mb-md text-brand-primary" />
-                <p className="text-h3 font-semibold mb-1">List a Property</p>
-                <p className="text-small text-neutral-text-secondary">
-                  Rent out your retail space
-                </p>
-              </motion.button>
+                {isSubmitting ? 'Creating account...' : t('auth.createAccount')}
+              </Button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-lg">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-border" />
+              </div>
+              <div className="relative flex justify-center text-small">
+                <span className="px-2 bg-white text-neutral-text-secondary">
+                  {t('auth.alreadyHaveAccount')}
+                </span>
+              </div>
             </div>
-            {errors.role && (
-              <p className="text-tiny text-status-error mt-2">{errors.role.message}</p>
-            )}
+
+            {/* Login Link */}
+            <Link href="/login">
+              <Button variant="secondary" fullWidth>
+                {t('auth.login')}
+              </Button>
+            </Link>
           </div>
-
-          {/* Signup Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-lg">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-              <Input
-                label="First Name"
-                type="text"
-                {...register('firstName')}
-                error={errors.firstName?.message}
-                placeholder="John"
-                leftIcon={<User className="w-5 h-5" />}
-                disabled={isSubmitting}
-              />
-
-              <Input
-                label="Last Name"
-                type="text"
-                {...register('lastName')}
-                error={errors.lastName?.message}
-                placeholder="Doe"
-                leftIcon={<User className="w-5 h-5" />}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <Input
-              label="Email Address"
-              type="email"
-              {...register('email')}
-              error={errors.email?.message}
-              placeholder="you@example.com"
-              leftIcon={<Mail className="w-5 h-5" />}
-              autoComplete="email"
-              disabled={isSubmitting}
-            />
-
-            <Input
-              label="Phone Number"
-              type="tel"
-              {...register('phone')}
-              error={errors.phone?.message}
-              placeholder="+254 712 345 678"
-              leftIcon={<Phone className="w-5 h-5" />}
-              helperText="Enter Kenyan phone number in format +254XXXXXXXXX"
-              disabled={isSubmitting}
-            />
-
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                {...register('password')}
-                error={errors.password?.message}
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-5 h-5" />}
-                helperText="Min. 8 characters with uppercase, lowercase, and number"
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-neutral-text-secondary hover:text-neutral-text-primary transition-colors"
-                tabIndex={-1}
-              >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Confirm Password"
-                type={showConfirmPassword ? 'text' : 'password'}
-                {...register('confirmPassword')}
-                error={errors.confirmPassword?.message}
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-5 h-5" />}
-                autoComplete="new-password"
-                disabled={isSubmitting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[38px] text-neutral-text-secondary hover:text-neutral-text-primary transition-colors"
-                tabIndex={-1}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                required
-                className="w-4 h-4 mt-1 text-brand-primary rounded focus:ring-brand-primary"
-                disabled={isSubmitting}
-              />
-              <label className="text-small text-neutral-text-secondary">
-                I agree to the{' '}
-                <Link
-                  href="/terms"
-                  className="text-brand-primary hover:text-brand-secondary"
-                >
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link
-                  href="/privacy"
-                  className="text-brand-primary hover:text-brand-secondary"
-                >
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              isLoading={isSubmitting}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Creating account...' : 'Create Account'}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-lg">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-border" />
-            </div>
-            <div className="relative flex justify-center text-small">
-              <span className="px-2 bg-white text-neutral-text-secondary">
-                Already have an account?
-              </span>
-            </div>
-          </div>
-
-          {/* Login Link */}
-          <Link href="/login">
-            <Button variant="secondary" fullWidth>
-              Log In
-            </Button>
-          </Link>
         </Card>
       </motion.div>
     </div>

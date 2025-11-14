@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,13 +23,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PropertyCardSkeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
-import { debounce, cn } from '@/lib/utils';
+import { debounce, buildQueryString } from '@/lib/utils';
+import { PropertyType, PropertyStatus, PROPERTY_TYPE_LABELS } from '@/types';
 import type { Property, SearchFilters, PaginatedResponse } from '@/types';
+import { useLanguageStore } from '@/lib/store/language-store';
 import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list' | 'map';
-
-const propertyTypes = ['SHOP', 'KIOSK', 'OFFICE', 'WAREHOUSE', 'STALL'] as const;
 
 const neighborhoods = [
   'CBD',
@@ -44,137 +44,74 @@ const neighborhoods = [
   'Kasarani',
 ];
 
-const amenitiesList = [
-  'Parking',
-  'WiFi',
-  'Security',
-  'Water',
-  'Electricity',
-  'Restrooms',
-  'Air Conditioning',
-  'Backup Generator',
-];
-
 const ITEMS_PER_PAGE = 12;
 
 export default function ListingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguageStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showFilters, setShowFilters] = useState(false);
-
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: ITEMS_PER_PAGE,
-    total: 0,
-    totalPages: 0,
-  });
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  
   const [filters, setFilters] = useState<SearchFilters>({
     location: searchParams.get('q') || '',
     propertyType: [],
     minPrice: undefined,
     maxPrice: undefined,
-    minSize: undefined,
-    maxSize: undefined,
-    amenities: [],
-    verified: false,
+    status: [PropertyStatus.AVAILABLE],
   });
 
-  const [searchQuery, setSearchQuery] = useState(filters.location || '');
-
-  // Set showFilters after mount based on screen size
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      setShowFilters(true);
-    }
-  }, []);
-
-  // Fetch properties from API
-  const fetchProperties = useCallback(async (page = 1) => {
+  // Fetch properties
+  const fetchProperties = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
       const params: any = {
-        page,
+        page: currentPage,
         limit: ITEMS_PER_PAGE,
       };
 
-      if (filters.location) params.location = filters.location;
-      if (filters.propertyType?.length) {
-        params.propertyType = filters.propertyType.join(',');
+      if (filters.location) params.neighborhood = filters.location;
+      if (filters.propertyType && filters.propertyType.length > 0) {
+        params.propertyType = filters.propertyType[0];
       }
-      if (filters.minPrice) params.minPrice = filters.minPrice;
-      if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-      if (filters.minSize) params.minSize = filters.minSize;
-      if (filters.maxSize) params.maxSize = filters.maxSize;
-      if (filters.amenities?.length) {
-        params.amenities = filters.amenities.join(',');
+      if (filters.minPrice) params.minRent = filters.minPrice;
+      if (filters.maxPrice) params.maxRent = filters.maxPrice;
+      if (filters.status && filters.status.length > 0) {
+        params.status = filters.status[0];
       }
-      if (filters.verified) params.verified = true;
 
-      const response = await apiClient.get<PaginatedResponse<Property>>(
-        '/properties',
-        { params }
-      );
-
-      if (response.success && response.data) {
-        // Ensure data is always an array
-        setProperties(Array.isArray(response.data.data) ? response.data.data : []);
-        // Ensure pagination has all required fields
-        setPagination({
-          page: response.data.pagination?.page || 1,
-          limit: response.data.pagination?.limit || ITEMS_PER_PAGE,
-          total: response.data.pagination?.total || 0,
-          totalPages: response.data.pagination?.totalPages || 0,
-        });
-      } else {
-        throw new Error(response.message || 'Failed to fetch properties');
-      }
-    } catch (err) {
-      const errorMessage = 'Failed to load properties';
-      setError(errorMessage);
-      setProperties([]); // Reset to empty array on error
-      ErrorHandler.handle(err, errorMessage);
+      const response = await apiClient.getProperties(params);
+      
+      setProperties(response.data);
+      setTotalPages(response.pagination.totalPages);
+      setTotalItems(response.pagination.total);
+    } catch (error) {
+      ErrorHandler.handle(error, 'Failed to load properties');
+      setProperties([]);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [currentPage, filters]);
 
   useEffect(() => {
-    fetchProperties(1);
+    fetchProperties();
   }, [fetchProperties]);
 
-  // Use useRef to store the debounced function
-  const debouncedSearchRef = useRef(
-    debounce((query: string) => {
-      setFilters(prev => ({ ...prev, location: query }));
-    }, 500)
-  );
+  // Debounced search
+  const handleSearchChange = debounce((value: string) => {
+    setFilters((prev) => ({ ...prev, location: value }));
+    setCurrentPage(1);
+  }, 500);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    debouncedSearchRef.current(value);
-  };
-
-  const handlePageChange = (page: number) => {
-    fetchProperties(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handlePropertyClick = (property: Property) => {
-    router.push(`/properties/${property.id}`);
-  };
-
-  const handleContactOwner = (property: Property) => {
-    router.push(`/properties/${property.id}#contact`);
+  const handleFilterChange = (key: keyof SearchFilters, value: any) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
@@ -183,387 +120,222 @@ export default function ListingsPage() {
       propertyType: [],
       minPrice: undefined,
       maxPrice: undefined,
-      minSize: undefined,
-      maxSize: undefined,
-      amenities: [],
-      verified: false,
+      status: [PropertyStatus.AVAILABLE],
     });
-    setSearchQuery('');
-    toast.success('Filters cleared');
+    setCurrentPage(1);
+  };
+
+  const handlePropertyClick = (property: Property) => {
+    router.push(`/properties/${property.id}`);
   };
 
   const activeFiltersCount = [
-    Array.isArray(filters.propertyType) && filters.propertyType.length > 0,
-    filters.minPrice,
-    filters.maxPrice,
-    filters.minSize,
-    filters.maxSize,
-    Array.isArray(filters.amenities) && filters.amenities.length > 0,
-    filters.verified,
-  ].filter(Boolean).length;
+    filters.propertyType?.length || 0,
+    filters.minPrice ? 1 : 0,
+    filters.maxPrice ? 1 : 0,
+    filters.location ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
 
   return (
-    <div className="min-h-screen bg-neutral-bg py-xl">
-      <div className="container-custom">
-        <div className="mb-xl">
-          <h1 className="text-h1 mb-md">Property Listings</h1>
+    <div className="min-h-screen bg-neutral-bg">
+      <div className="container-custom py-xl">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-xl"
+        >
+          <h1 className="text-h1 mb-md">{t('listings.title')}</h1>
           <p className="text-body text-neutral-text-secondary">
-            Browse available retail spaces in Nairobi
+            {t('listings.subtitle')}
           </p>
-        </div>
+        </motion.div>
 
-        <Card className="p-md mb-lg">
-          <div className="flex flex-col md:flex-row gap-md">
-            <div className="flex-1">
-              <Input
-                placeholder="Search by location, neighborhood, or property type..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                leftIcon={<Search className="w-5 h-5" />}
-                rightIcon={
-                  searchQuery && (
-                    <button
-                      onClick={() => {
-                        setSearchQuery('');
-                        setFilters(prev => ({ ...prev, location: '' }));
-                      }}
-                      className="text-neutral-text-secondary hover:text-neutral-text-primary"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )
-                }
-              />
-            </div>
-            <Button variant="primary" leftIcon={<Search />}>
-              Search
-            </Button>
-          </div>
-        </Card>
+        {/* Search and Filters Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-lg"
+        >
+          <Card>
+            <div className="p-md">
+              <div className="flex flex-col md:flex-row gap-md">
+                {/* Search */}
+                <div className="flex-1">
+                  <Input
+                    placeholder={t('listings.filterByLocation')}
+                    leftIcon={<Search className="w-5 h-5" />}
+                    defaultValue={filters.location}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                  />
+                </div>
 
-        <div className="flex items-center justify-between mb-lg">
-          <div className="text-body text-neutral-text-secondary">
-            {loading ? (
-              'Loading...'
-            ) : (
-              <>
-                Showing {properties?.length || 0} of {pagination?.total || 0} properties
-                {activeFiltersCount > 0 && ` (${activeFiltersCount} filters active)`}
-              </>
-            )}
-          </div>
+                {/* View Mode */}
+                <div className="hidden md:flex gap-2">
+                  <Button
+                    variant={viewMode === 'grid' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    leftIcon={<Grid className="w-4 h-4" />}
+                  >
+                    {t('listings.gridView')}
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    leftIcon={<ListIcon className="w-4 h-4" />}
+                  >
+                    {t('listings.listView')}
+                  </Button>
+                </div>
 
-          <div className="flex items-center gap-md">
-            <div className="hidden md:flex items-center gap-1 bg-neutral-surface rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={cn(
-                  'p-2 rounded transition-colors',
-                  viewMode === 'grid'
-                    ? 'bg-brand-primary text-white'
-                    : 'text-neutral-text-secondary hover:text-brand-primary'
-                )}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn(
-                  'p-2 rounded transition-colors',
-                  viewMode === 'list'
-                    ? 'bg-brand-primary text-white'
-                    : 'text-neutral-text-secondary hover:text-brand-primary'
-                )}
-              >
-                <ListIcon className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('map')}
-                className={cn(
-                  'p-2 rounded transition-colors',
-                  viewMode === 'map'
-                    ? 'bg-brand-primary text-white'
-                    : 'text-neutral-text-secondary hover:text-brand-primary'
-                )}
-              >
-                <Map className="w-5 h-5" />
-              </button>
-            </div>
+                {/* Filter Toggle */}
+                <Button
+                  variant="secondary"
+                  leftIcon={<Filter className="w-4 h-4" />}
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  {t('common.filter')}
+                  {activeFiltersCount > 0 && (
+                    <Badge className="ml-2">
+                      {activeFiltersCount}
+                    </Badge>
+                  )}
+                </Button>
+              </div>
 
-            <Button
-              variant="secondary"
-              leftIcon={<Filter />}
-              onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden"
-            >
-              Filters
-              {activeFiltersCount > 0 && (
-                <Badge className="ml-2">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-            </Button>
-
-            {activeFiltersCount > 0 && (
-              <Button
-                variant="text"
-                leftIcon={<X />}
-                onClick={handleClearFilters}
-                className="hidden md:flex"
-              >
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex gap-lg">
-          <AnimatePresence>
-            {showFilters && (
-              <motion.aside
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 'auto', opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="hidden md:block w-80 flex-shrink-0"
-              >
-                <Card className="p-lg sticky top-24">
-                  <div className="flex items-center justify-between mb-lg">
-                    <h3 className="text-h4">Filters</h3>
-                    {activeFiltersCount > 0 && (
-                      <Button
-                        variant="text"
-                        size="sm"
-                        leftIcon={<X className="w-4 h-4" />}
-                        onClick={handleClearFilters}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="space-y-lg">
-                    <div>
-                      <label className="block text-small font-medium mb-md">
-                        Property Type
-                      </label>
-                      <div className="space-y-2">
-                        {propertyTypes.map((type) => (
-                          <label
-                            key={type}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filters.propertyType?.includes(type as any) || false}
-                              onChange={(e) => {
-                                const newTypes = e.target.checked
-                                  ? [...(filters.propertyType || []), type as any]
-                                  : (filters.propertyType || []).filter((t) => t !== type);
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  propertyType: newTypes,
-                                }));
-                              }}
-                              className="w-4 h-4 text-brand-primary rounded focus:ring-brand-primary"
-                            />
-                            <span className="text-small">{type}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-small font-medium mb-md">
-                        Neighborhood
-                      </label>
+              {/* Filters Panel */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="mt-md pt-md border-t border-neutral-border"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                       <Select
+                        label={t('listings.filterByType')}
                         options={[
-                          { value: '', label: 'All Neighborhoods' },
-                          ...neighborhoods.map((n) => ({ value: n, label: n })),
+                          { value: '', label: 'All Types' },
+                          ...Object.values(PropertyType).map((type) => ({
+                            value: type,
+                            label: PROPERTY_TYPE_LABELS[type],
+                          })),
                         ]}
-                        value={filters.location || ''}
+                        value={filters.propertyType?.[0] || ''}
                         onChange={(e) =>
-                          setFilters((prev) => ({ ...prev, location: e.target.value }))
+                          handleFilterChange(
+                            'propertyType',
+                            e.target.value ? [e.target.value as PropertyType] : []
+                          )
+                        }
+                      />
+
+                      <Input
+                        type="number"
+                        label={t('listings.filterByPrice') + ' (Min)'}
+                        placeholder="Min price"
+                        value={filters.minPrice || ''}
+                        onChange={(e) =>
+                          handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)
+                        }
+                      />
+
+                      <Input
+                        type="number"
+                        label={t('listings.filterByPrice') + ' (Max)'}
+                        placeholder="Max price"
+                        value={filters.maxPrice || ''}
+                        onChange={(e) =>
+                          handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)
                         }
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-small font-medium mb-md">
-                        Monthly Rent (KES)
-                      </label>
-                      <div className="grid grid-cols-2 gap-md">
-                        <Input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.minPrice || ''}
-                          onChange={(e) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              minPrice: e.target.value ? Number(e.target.value) : undefined,
-                            }))
-                          }
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.maxPrice || ''}
-                          onChange={(e) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              maxPrice: e.target.value ? Number(e.target.value) : undefined,
-                            }))
-                          }
-                        />
-                      </div>
+                    <div className="flex gap-md mt-md">
+                      <Button variant="primary" size="sm" onClick={fetchProperties}>
+                        {t('common.apply')}
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={handleClearFilters}>
+                        {t('common.clear')}
+                      </Button>
                     </div>
-
-                    <div>
-                      <label className="block text-small font-medium mb-md">
-                        Size (sqm)
-                      </label>
-                      <div className="grid grid-cols-2 gap-md">
-                        <Input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.minSize || ''}
-                          onChange={(e) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              minSize: e.target.value ? Number(e.target.value) : undefined,
-                            }))
-                          }
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.maxSize || ''}
-                          onChange={(e) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              maxSize: e.target.value ? Number(e.target.value) : undefined,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-small font-medium mb-md">
-                        Amenities
-                      </label>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {amenitiesList.map((amenity) => (
-                          <label
-                            key={amenity}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={filters.amenities?.includes(amenity) || false}
-                              onChange={(e) => {
-                                const newAmenities = e.target.checked
-                                  ? [...(filters.amenities || []), amenity]
-                                  : (filters.amenities || []).filter((a) => a !== amenity);
-                                setFilters((prev) => ({
-                                  ...prev,
-                                  amenities: newAmenities,
-                                }));
-                              }}
-                              className="w-4 h-4 text-brand-primary rounded focus:ring-brand-primary"
-                            />
-                            <span className="text-small">{amenity}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={filters.verified}
-                          onChange={(e) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              verified: e.target.checked,
-                            }))
-                          }
-                          className="w-4 h-4 text-brand-primary rounded focus:ring-brand-primary"
-                        />
-                        <span className="text-small font-medium">
-                          Verified properties only
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </Card>
-              </motion.aside>
-            )}
-          </AnimatePresence>
-
-          <div className="flex-1">
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
-                {[...Array(6)].map((_, i) => (
-                  <PropertyCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : error ? (
-              <EmptyState
-                icon={<X className="w-full h-full" />}
-                title="Error Loading Properties"
-                description={error}
-                action={{
-                  label: 'Try Again',
-                  onClick: () => fetchProperties(1),
-                }}
-              />
-            ) : properties.length === 0 ? (
-              <EmptyState
-                icon={<MapPin className="w-full h-full" />}
-                title="No Properties Found"
-                description="We couldn't find any properties matching your search criteria. Try adjusting your filters or search in a different area."
-                action={{
-                  label: 'Clear Filters',
-                  onClick: handleClearFilters,
-                }}
-              />
-            ) : (
-              <>
-                <motion.div
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ staggerChildren: 0.1 }}
-                >
-                  {properties.map((property) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      onClick={handlePropertyClick}
-                      onContact={handleContactOwner}
-                    />
-                  ))}
-                </motion.div>
-
-                {pagination.totalPages > 1 && (
-                  <div className="mt-xl">
-                    <Pagination
-                      currentPage={pagination.page}
-                      totalPages={pagination.totalPages}
-                      onPageChange={handlePageChange}
-                      loading={loading}
-                      showInfo
-                      totalItems={pagination.total}
-                      itemsPerPage={pagination.limit}
-                    />
-                  </div>
+                  </motion.div>
                 )}
-              </>
-            )}
+              </AnimatePresence>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Results Count */}
+        {!loading && (
+          <div className="mb-md">
+            <p className="text-small text-neutral-text-secondary">
+              {totalItems} {t('listings.resultsFound')}
+            </p>
           </div>
-        </div>
+        )}
+
+        {/* Properties Grid/List */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+            {[...Array(6)].map((_, i) => (
+              <PropertyCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : properties.length === 0 ? (
+          <EmptyState
+            icon={MapPin}
+            title={t('listings.noResults')}
+            description={t('listings.noResultsDescription')}
+            actionLabel={t('common.reset')}
+            onAction={handleClearFilters}
+          />
+        ) : (
+          <>
+            <motion.div
+              className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg'
+                  : 'flex flex-col gap-lg'
+              }
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {properties.map((property, index) => (
+                <motion.div
+                  key={property.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <PropertyCard
+                    property={property}
+                    onClick={handlePropertyClick}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-xl">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  loading={loading}
+                  showInfo
+                  totalItems={totalItems}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

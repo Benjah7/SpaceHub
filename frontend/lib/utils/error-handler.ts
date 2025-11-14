@@ -1,123 +1,196 @@
-import { ApiError } from '@/types';
+import type { ApiError } from '@/types';
 import toast from 'react-hot-toast';
 
-interface ValidationError {
-  field?: string;
-  param?: string;
-  msg?: string;
-  message?: string;
-}
-
+/**
+ * Error Handler Utility
+ * Centralized error handling for API requests and application errors
+ */
 export class ErrorHandler {
   /**
-   * Main error handling method
+   * Handle and display errors
    */
-  static handle(error: unknown, fallbackMessage = 'An error occurred'): ValidationError[] | null {
-    const apiError = error as ApiError;
-    
-    // Handle field-level validation errors
-    if (apiError.errors) {
-      return this.handleValidationErrors(apiError.errors);
+  static handle(error: unknown, customMessage?: string): void {
+    console.error('Error:', error);
+
+    if (this.isApiError(error)) {
+      this.handleApiError(error, customMessage);
+    } else if (error instanceof Error) {
+      this.handleGenericError(error, customMessage);
+    } else {
+      this.handleUnknownError(customMessage);
     }
-    
-    // Handle HTTP status code errors
-    this.handleStatusCodeError(apiError, fallbackMessage);
-    
-    return null;
   }
 
   /**
-   * Handle validation errors from backend
+   * Handle API errors with detailed messages
    */
-  private static handleValidationErrors(errors: any): ValidationError[] {
-    if (!Array.isArray(errors)) {
-      toast.error('Validation failed');
-      return [];
+  private static handleApiError(error: ApiError, customMessage?: string): void {
+    // Show custom message or API error message
+    const message = customMessage || error.message || 'An error occurred';
+    toast.error(message);
+
+    // Show field-specific errors if available
+    if (error.errors && Object.keys(error.errors).length > 0) {
+      Object.entries(error.errors).forEach(([field, messages]) => {
+        if (Array.isArray(messages)) {
+          messages.forEach((msg) => {
+            toast.error(`${this.formatFieldName(field)}: ${msg}`, {
+              duration: 5000,
+            });
+          });
+        }
+      });
     }
 
-    const validationErrors: ValidationError[] = [];
-
-    errors.forEach((err: any) => {
-      let fieldName = '';
-      let message = '';
-
-      // Handle express-validator format
-      if (err.param && err.msg) {
-        fieldName = err.param;
-        message = err.msg;
-      }
-      // Handle custom format
-      else if (err.field && err.message) {
-        fieldName = err.field;
-        message = err.message;
-      }
-      // Handle plain string errors
-      else if (typeof err === 'string') {
-        message = err;
-      }
-
-      if (fieldName && message) {
-        toast.error(`${this.formatFieldName(fieldName)}: ${message}`, {
-          duration: 4000,
-        });
-        validationErrors.push({ field: fieldName, message });
-      } else if (message) {
-        toast.error(message);
-      }
+    // Log for debugging
+    console.error('API Error:', {
+      message: error.message,
+      statusCode: error.statusCode,
+      errors: error.errors,
     });
-
-    return validationErrors;
   }
 
   /**
-   * Handle errors based on HTTP status code
+   * Handle generic JavaScript errors
    */
-  private static handleStatusCodeError(apiError: ApiError, fallbackMessage: string): void {
-    const statusCode = apiError.statusCode || 500;
-    const message = apiError.message || fallbackMessage;
+  private static handleGenericError(error: Error, customMessage?: string): void {
+    const message = customMessage || error.message || 'An unexpected error occurred';
+    toast.error(message);
 
-    switch (statusCode) {
-      case 400:
-        toast.error(message || 'Invalid request. Please check your input.');
-        break;
+    console.error('Generic Error:', error);
+  }
 
-      case 401:
-        toast.error('Please log in to continue.');
-        // Redirect handled by API client interceptor
-        break;
+  /**
+   * Handle unknown error types
+   */
+  private static handleUnknownError(customMessage?: string): void {
+    const message = customMessage || 'An unexpected error occurred';
+    toast.error(message);
 
-      case 403:
-        toast.error('You do not have permission to perform this action.');
-        break;
+    console.error('Unknown Error');
+  }
 
-      case 404:
-        toast.error(message || 'The requested resource was not found.');
-        break;
+  /**
+   * Type guard to check if error is ApiError
+   */
+  static isApiError(error: unknown): error is ApiError {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      'statusCode' in error
+    );
+  }
 
-      case 409:
-        toast.error(message || 'This resource already exists.');
-        break;
-
-      case 422:
-        toast.error(message || 'Validation failed. Please check your input.');
-        break;
-
-      case 429:
-        toast.error('Too many requests. Please try again later.');
-        break;
-
-      case 500:
-        toast.error('Server error. Our team has been notified.');
-        console.error('Server error:', apiError);
-        break;
-
-      case 503:
-        toast.error('Service temporarily unavailable. Please try again later.');
-        break;
-
-      default:
-        toast.error(message || fallbackMessage);
+  /**
+   * Get error message from any error type
+   */
+  static getErrorMessage(error: unknown): string {
+    if (this.isApiError(error)) {
+      return error.message;
     }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return 'An unexpected error occurred';
+  }
+
+  /**
+   * Get detailed error information
+   */
+  static getErrorDetails(error: unknown): {
+    message: string;
+    statusCode?: number;
+    errors?: Record<string, string[]>;
+  } {
+    if (this.isApiError(error)) {
+      return {
+        message: error.message,
+        statusCode: error.statusCode,
+        errors: error.errors,
+      };
+    }
+
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+      };
+    }
+
+    return {
+      message: 'An unexpected error occurred',
+    };
+  }
+
+  /**
+   * Check if error is a specific HTTP status code
+   */
+  static isStatusCode(error: unknown, statusCode: number): boolean {
+    return this.isApiError(error) && error.statusCode === statusCode;
+  }
+
+  /**
+   * Check if error is a network error
+   */
+  static isNetworkError(error: unknown): boolean {
+    if (error instanceof Error) {
+      return (
+        error.message.toLowerCase().includes('network') ||
+        error.message.toLowerCase().includes('fetch') ||
+        error.message.toLowerCase().includes('connection')
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Check if error is a timeout error
+   */
+  static isTimeoutError(error: unknown): boolean {
+    if (error instanceof Error) {
+      return (
+        error.message.toLowerCase().includes('timeout') ||
+        error.message.toLowerCase().includes('timed out')
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Check if error is an authentication error
+   */
+  static isAuthError(error: unknown): boolean {
+    return this.isStatusCode(error, 401) || this.isStatusCode(error, 403);
+  }
+
+  /**
+   * Check if error is a validation error
+   */
+  static isValidationError(error: unknown): boolean {
+    return this.isStatusCode(error, 400) || this.isStatusCode(error, 422);
+  }
+
+  /**
+   * Check if error is a not found error
+   */
+  static isNotFoundError(error: unknown): boolean {
+    return this.isStatusCode(error, 404);
+  }
+
+  /**
+   * Check if error is a server error
+   */
+  static isServerError(error: unknown): boolean {
+    if (this.isApiError(error)) {
+      return error.statusCode >= 500;
+    }
+    return false;
   }
 
   /**
@@ -125,41 +198,110 @@ export class ErrorHandler {
    */
   private static formatFieldName(field: string): string {
     return field
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, (str) => str.toUpperCase())
-      .replace(/_/g, ' ')
-      .trim();
+      .split(/(?=[A-Z])|_/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   }
 
   /**
-   * Handle network errors
+   * Create a user-friendly error message based on status code
    */
-  static handleNetworkError(): void {
-    toast.error('Network error. Please check your connection and try again.');
+  static getStatusMessage(statusCode: number): string {
+    const messages: Record<number, string> = {
+      400: 'Invalid request. Please check your input.',
+      401: 'You need to be logged in to perform this action.',
+      403: 'You do not have permission to perform this action.',
+      404: 'The requested resource was not found.',
+      408: 'Request timeout. Please try again.',
+      409: 'This action conflicts with existing data.',
+      422: 'Validation failed. Please check your input.',
+      429: 'Too many requests. Please slow down.',
+      500: 'Server error. Please try again later.',
+      502: 'Bad gateway. Please try again later.',
+      503: 'Service unavailable. Please try again later.',
+      504: 'Gateway timeout. Please try again later.',
+    };
+
+    return messages[statusCode] || 'An error occurred. Please try again.';
   }
 
   /**
-   * Handle timeout errors
+   * Handle async errors with optional retry
    */
-  static handleTimeout(): void {
-    toast.error('Request timed out. Please try again.');
-  }
+  static async withRetry<T>(
+    fn: () => Promise<T>,
+    retries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: unknown;
 
-  /**
-   * Parse validation errors into form-compatible format
-   */
-  static parseValidationErrors(errors: any): Record<string, string> {
-    if (!Array.isArray(errors)) return {};
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
 
-    return errors.reduce((acc, err) => {
-      const field = err.param || err.field;
-      const message = err.msg || err.message;
-      
-      if (field && message) {
-        acc[field] = message;
+        // Don't retry on client errors (4xx) except 429 (rate limit)
+        if (this.isApiError(error) && error.statusCode >= 400 && error.statusCode < 500) {
+          if (error.statusCode !== 429) {
+            throw error;
+          }
+        }
+
+        // Wait before retrying (exponential backoff)
+        if (i < retries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i)));
+        }
       }
-      
-      return acc;
-    }, {} as Record<string, string>);
+    }
+
+    throw lastError;
   }
+
+  /**
+   * Log error to external service (placeholder for future implementation)
+   */
+  static logToService(error: unknown, context?: Record<string, any>): void {
+    // TODO: Implement logging to external service (e.g., Sentry)
+    console.error('Error logged:', {
+      error: this.getErrorDetails(error),
+      context,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+/**
+ * Async error boundary wrapper
+ */
+export async function handleAsync<T>(
+  promise: Promise<T>,
+  errorHandler?: (error: unknown) => void
+): Promise<[T | null, unknown | null]> {
+  try {
+    const data = await promise;
+    return [data, null];
+  } catch (error) {
+    if (errorHandler) {
+      errorHandler(error);
+    } else {
+      ErrorHandler.handle(error);
+    }
+    return [null, error];
+  }
+}
+
+/**
+ * Create error object
+ */
+export function createError(
+  message: string,
+  statusCode: number = 500,
+  errors?: Record<string, string[]>
+): ApiError {
+  return {
+    message,
+    statusCode,
+    errors,
+  };
 }

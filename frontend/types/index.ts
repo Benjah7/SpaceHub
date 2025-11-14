@@ -8,19 +8,20 @@ export interface Location {
   county: string;
 }
 
+// Updated to match backend
 export enum PropertyType {
-  SHOP = 'SHOP',
-  KIOSK = 'KIOSK',
+  RETAIL = 'RETAIL',
   OFFICE = 'OFFICE',
-  WAREHOUSE = 'WAREHOUSE',
+  KIOSK = 'KIOSK',
   STALL = 'STALL',
 }
 
+// Updated to match backend
 export enum PropertyStatus {
   AVAILABLE = 'AVAILABLE',
-  BOOKED = 'BOOKED',
-  UNAVAILABLE = 'UNAVAILABLE',
+  RENTED = 'RENTED',
   PENDING = 'PENDING',
+  INACTIVE = 'INACTIVE',
 }
 
 export interface PropertyAmenity {
@@ -73,7 +74,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone: string;
-  role: 'OWNER' | 'TENANT';
+  role: 'OWNER' | 'TENANT' | 'ADMIN';
   verified: boolean;
   avatar?: string;
   createdAt: string;
@@ -83,6 +84,7 @@ export interface PropertyOwner extends User {
   properties: Property[];
   rating: number;
   reviewCount: number;
+  bio?: string;
 }
 
 // Search & Filter Types
@@ -124,7 +126,9 @@ export interface Inquiry {
   tenantId: string;
   tenant: User;
   message: string;
-  status: 'PENDING' | 'RESPONDED' | 'ACCEPTED' | 'REJECTED';
+  status: 'PENDING' | 'RESPONDED' | 'CLOSED';
+  response?: string;
+  preferredViewingDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -157,6 +161,18 @@ export interface PaymentResponse {
   message: string;
   transactionId?: string;
   checkoutRequestId?: string;
+}
+
+// Review Types
+export interface Review {
+  id: string;
+  propertyId: string;
+  userId: string;
+  user: User;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Dashboard Analytics Types
@@ -198,10 +214,14 @@ export interface LoginFormData {
   password: string;
 }
 
-export interface SignupFormData extends LoginFormData {
+export interface SignupFormData {
   firstName: string;
   lastName: string;
+  email: string;
+  name: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
   role: 'OWNER' | 'TENANT';
 }
 
@@ -213,6 +233,7 @@ export interface PropertyFormData {
   size: number;
   location: {
     address: string;
+    neighborhood: string;
     lat: number;
     lng: number;
   };
@@ -224,6 +245,13 @@ export interface PropertyFormData {
 export interface InquiryFormData {
   propertyId: string;
   message: string;
+  preferredViewingDate?: string;
+}
+
+export interface ReviewFormData {
+  propertyId: string;
+  rating: number;
+  comment: string;
 }
 
 // API Response Types
@@ -258,3 +286,18 @@ export type Language = 'en' | 'sw';
 export interface Translation {
   [key: string]: string | Translation;
 }
+
+// Constants
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  [PropertyType.RETAIL]: 'Retail Shop',
+  [PropertyType.OFFICE]: 'Office Space',
+  [PropertyType.KIOSK]: 'Kiosk',
+  [PropertyType.STALL]: 'Market Stall',
+};
+
+export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
+  [PropertyStatus.AVAILABLE]: 'Available',
+  [PropertyStatus.RENTED]: 'Rented',
+  [PropertyStatus.PENDING]: 'Pending',
+  [PropertyStatus.INACTIVE]: 'Inactive',
+};

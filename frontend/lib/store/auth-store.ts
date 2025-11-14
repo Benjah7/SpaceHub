@@ -17,9 +17,9 @@ interface AuthState {
 }
 
 interface SignupData {
+  name: string;
   email: string;
   password: string;
-  name: string;
   phone: string;
   role: 'OWNER' | 'TENANT';
 }
@@ -48,15 +48,11 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true });
         try {
-          const response = await apiClient.post<{ user: User; token: string }>(
-            '/auth/login',
-            { email, password }
-          );
-
-          if (response.success && response.data) {
-            const { user, token } = response.data;
-            get().setUser(user);
-            get().setToken(token);
+          const response = await apiClient.login(email, password);
+          
+          if (response.user && response.token) {
+            get().setUser(response.user);
+            get().setToken(response.token);
           }
         } catch (error) {
           throw error;
@@ -65,18 +61,14 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signup: async (data) => {
+      signup: async (data: SignupData) => {
         set({ isLoading: true });
         try {
-          const response = await apiClient.post<{ user: User; token: string }>(
-            '/auth/register',
-            data
-          );
+          const response = await apiClient.register(data);
 
-          if (response.success && response.data) {
-            const { user, token } = response.data;
-            get().setUser(user);
-            get().setToken(token);
+          if (response.user && response.token) {
+            get().setUser(response.user);
+            get().setToken(response.token);
           }
         } catch (error) {
           throw error;
@@ -98,9 +90,11 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await apiClient.get<{ user: User }>('/auth/me');
-          if (response.success && response.data) {
-            get().setUser(response.data.user);
+          const user = await apiClient.getMe();
+          if (user) {
+            get().setUser(user);
+          } else {
+            get().logout();
           }
         } catch (error) {
           get().logout();

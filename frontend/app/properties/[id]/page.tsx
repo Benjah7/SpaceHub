@@ -25,15 +25,23 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { PropertyCard } from '@/components/property/PropertyCard';
-import type { Property } from '@/types';
+import { PropertyDetailSkeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { apiClient } from '@/lib/api-client';
+import { ErrorHandler } from '@/lib/utils/error-handler';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useLanguageStore } from '@/lib/store/language-store';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { PROPERTY_TYPE_LABELS } from '@/types';
+import type { Property } from '@/types';
 import toast from 'react-hot-toast';
 
 export default function PropertyDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { t } = useLanguageStore();
+  const { isAuthenticated } = useAuthStore();
+  
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -41,27 +49,45 @@ export default function PropertyDetailPage() {
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [similarProperties, setSimilarProperties] = useState<Property[]>([]);
+  
+  const [inquiryForm, setInquiryForm] = useState({
+    message: '',
+    preferredViewingDate: '',
+  });
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
 
   // Fetch property details
   useEffect(() => {
     const fetchProperty = async () => {
+      if (!params.id) return;
+      
+      setLoading(true);
       try {
-        // TODO: Replace with actual API call
-        // const response = await apiClient.get<Property>(`/properties/${params.id}`);
-        // setProperty(response.data);
+        const data = await apiClient.getPropertyById(params.id as string);
         
-        // Mock delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setLoading(false);
+        if (data) {
+          setProperty(data);
+          
+          // Fetch similar properties
+          const similar = await apiClient.getProperties({
+            propertyType: data.propertyType,
+            limit: 3,
+          });
+          setSimilarProperties(similar.data.filter(p => p.id !== data.id));
+        } else {
+          toast.error('Property not found');
+          router.push('/listings');
+        }
       } catch (error) {
-        console.error('Error fetching property:', error);
-        toast.error('Failed to load property details');
+        ErrorHandler.handle(error, 'Failed to load property');
+        router.push('/listings');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchProperty();
-  }, [params.id]);
+  }, [params.id, router]);
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -81,6 +107,11 @@ export default function PropertyDetailPage() {
   };
 
   const handleToggleFavorite = () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to add favorites');
+      router.push('/login');
+      return;
+    }
     setIsFavorite(!isFavorite);
     toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites');
   };
@@ -99,26 +130,58 @@ export default function PropertyDetailPage() {
     );
   };
 
+  const handleSubmitInquiry = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to send inquiries');
+      router.push('/login');
+      return;
+    }
+
+    if (!inquiryForm.message.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
+    setSubmittingInquiry(true);
+    try {
+      await apiClient.createInquiry({
+        propertyId: params.id as string,
+        message: inquiryForm.message,
+        preferredViewingDate: inquiryForm.preferredViewingDate,
+      });
+
+      toast.success('Inquiry sent successfully!');
+      setShowInquiryModal(false);
+      setInquiryForm({ message: '', preferredViewingDate: '' });
+    } catch (error) {
+      ErrorHandler.handle(error, 'Failed to send inquiry');
+    } finally {
+      setSubmittingInquiry(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner w-12 h-12" />
+      <div className="min-h-screen bg-neutral-bg py-xl">
+        <div className="container-custom">
+          <PropertyDetailSkeleton />
+        </div>
       </div>
     );
   }
 
   if (!property) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="text-center p-3xl">
-          <h2 className="text-h2 mb-md">Property Not Found</h2>
-          <p className="text-body text-neutral-text-secondary mb-lg">
-            The property you're looking for doesn't exist or has been removed.
-          </p>
-          <Button onClick={() => router.push('/listings')}>
-            Browse Properties
-          </Button>
-        </Card>
+      <div className="min-h-screen bg-neutral-bg py-xl">
+        <div className="container-custom">
+          <EmptyState
+            icon={MapPin}
+            title="Property Not Found"
+            description="The property you're looking for doesn't exist"
+            actionLabel="Back to Listings"
+            actionHref="/listings"
+          />
+        </div>
       </div>
     );
   }
@@ -126,190 +189,176 @@ export default function PropertyDetailPage() {
   return (
     <div className="min-h-screen bg-neutral-bg">
       {/* Back Button */}
-      <div className="container-custom py-lg">
-        <Button
-          variant="text"
-          onClick={() => router.back()}
-          leftIcon={<ArrowLeft className="w-5 h-5" />}
-        >
-          Back to Listings
-        </Button>
+      <div className="bg-neutral-surface border-b border-neutral-border py-md">
+        <div className="container-custom">
+          <Button
+            variant="text"
+            leftIcon={<ArrowLeft className="w-5 h-5" />}
+            onClick={() => router.back()}
+          >
+            {t('common.back')}
+          </Button>
+        </div>
       </div>
 
-      {/* Image Gallery */}
-      <section className="bg-neutral-surface">
-        <div className="container-custom py-xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-xl">
-            {/* Main Image */}
-            <motion.div
-              className="relative h-[400px] lg:h-[600px] rounded-lg overflow-hidden"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <Image
-                src={property.images[selectedImageIndex]?.url || '/placeholder.jpg'}
-                alt={property.title}
-                fill
-                className="object-cover"
-                priority
-              />
-
-              {/* Image Navigation */}
-              {property.images.length > 1 && (
-                <>
-                  <button
-                    onClick={handlePrevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={handleNextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-
-                  {/* Image Counter */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/70 text-white rounded-full text-small">
-                    {selectedImageIndex + 1} / {property.images.length}
-                  </div>
-                </>
-              )}
-
-              {/* Action Buttons */}
-              <div className="absolute top-4 right-4 flex gap-2">
-                <button
-                  onClick={handleShare}
-                  className="p-3 bg-white/90 rounded-full hover:bg-white transition-colors"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={handleToggleFavorite}
-                  className="p-3 bg-white/90 rounded-full hover:bg-white transition-colors"
-                >
-                  <Heart
-                    className={`w-5 h-5 ${
-                      isFavorite ? 'fill-status-error text-status-error' : ''
-                    }`}
-                  />
-                </button>
+      <div className="container-custom py-xl">
+        {/* Image Gallery */}
+        <motion.div
+          className="mb-xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="relative h-[400px] rounded-xl overflow-hidden mb-md">
+            {property.images.length > 0 ? (
+              <>
+                <Image
+                  src={property.images[selectedImageIndex]?.url || '/placeholder.jpg'}
+                  alt={property.title}
+                  fill
+                  className="object-cover"
+                />
+                
+                {property.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={handlePrevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full hover:bg-white transition-colors"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={handleNextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full hover:bg-white transition-colors"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full bg-neutral-bg flex items-center justify-center">
+                <p className="text-neutral-text-secondary">No images available</p>
               </div>
-            </motion.div>
+            )}
+          </div>
 
-            {/* Thumbnail Grid */}
+          {/* Thumbnail Strip */}
+          {property.images.length > 1 && (
             <div className="grid grid-cols-4 gap-md">
-              {property.images.map((image, index) => (
-                <motion.button
-                  key={image.id}
+              {property.images.slice(0, 4).map((image, index) => (
+                <button
+                  key={index}
                   onClick={() => setSelectedImageIndex(index)}
                   className={`relative h-24 rounded-lg overflow-hidden ${
-                    selectedImageIndex === index
-                      ? 'ring-4 ring-brand-primary'
-                      : 'opacity-70 hover:opacity-100'
+                    selectedImageIndex === index ? 'ring-2 ring-brand-primary' : ''
                   }`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
                 >
                   <Image
                     src={image.url}
-                    alt={`${property.title} - Image ${index + 1}`}
+                    alt={`${property.title} ${index + 1}`}
                     fill
                     className="object-cover"
                   />
-                </motion.button>
+                </button>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
+          )}
+        </motion.div>
 
-      {/* Property Details */}
-      <section className="container-custom py-xl">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-xl">
+          <div className="lg:col-span-2 space-y-lg">
             {/* Header */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <div>
               <div className="flex items-start justify-between mb-md">
-                <div>
-                  <h1 className="text-h1 mb-2">{property.title}</h1>
-                  <div className="flex items-center gap-md text-neutral-text-secondary">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-5 h-5" />
-                      <span>{property.location.neighborhood}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Square className="w-5 h-5" />
-                      <span>{property.size} sqm</span>
-                    </div>
+                <div className="flex-1">
+                  <h1 className="text-h1 mb-md">{property.title}</h1>
+                  <div className="flex items-center gap-md text-body text-neutral-text-secondary mb-md">
+                    <MapPin className="w-5 h-5" />
+                    <span>{property.location.address}, {property.location.neighborhood}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {property.verified && (
-                    <Badge variant="success">
-                      <Check className="w-3 h-3 mr-1" />
-                      Verified
-                    </Badge>
-                  )}
-                  <Badge variant="success">{property.status}</Badge>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Share2 className="w-4 h-4" />}
+                    onClick={handleShare}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Heart className={`w-4 h-4 ${isFavorite ? 'fill-current text-status-error' : ''}`} />}
+                    onClick={handleToggleFavorite}
+                  />
                 </div>
               </div>
 
-              <div className="bg-brand-accent/10 p-lg rounded-lg">
-                <p className="text-h1 font-bold text-brand-accent mb-1">
-                  {formatCurrency(property.price)}
-                </p>
-                <p className="text-body text-neutral-text-secondary">
-                  per month
-                </p>
+              <div className="flex flex-wrap gap-md">
+                <Badge>
+                  {PROPERTY_TYPE_LABELS[property.propertyType]}
+                </Badge>
+                <Badge variant="success">{property.status}</Badge>
+                {property.verified && (
+                  <Badge variant="info">
+                    <Check className="w-3 h-3 mr-1" />
+                    {t('property.verified')}
+                  </Badge>
+                )}
               </div>
-            </motion.div>
+            </div>
+
+            {/* Price */}
+            <Card>
+              <div className="text-h2 font-bold text-brand-primary">
+                {formatCurrency(property.price)}
+                <span className="text-body text-neutral-text-secondary font-normal">
+                  {t('property.per_month')}
+                </span>
+              </div>
+            </Card>
 
             {/* Description */}
             <Card>
-              <h2 className="text-h2 mb-md">Description</h2>
-              <p className="text-body text-neutral-text-secondary leading-relaxed">
+              <h2 className="text-h2 mb-md">{t('property.description')}</h2>
+              <p className="text-body text-neutral-text-primary leading-relaxed">
                 {property.description}
               </p>
             </Card>
 
-            {/* Features */}
-            <Card>
-              <h2 className="text-h2 mb-md">Features & Amenities</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
-                {property.amenities.map((amenity) => (
-                  <div
-                    key={amenity.id}
-                    className="flex items-center gap-2 text-body"
-                  >
-                    <Check className="w-5 h-5 text-status-success" />
-                    <span>{amenity.name}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            {/* Amenities */}
+            {property.amenities.length > 0 && (
+              <Card>
+                <h2 className="text-h2 mb-md">{t('property.amenities')}</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
+                  {property.amenities.map((amenity) => (
+                    <div key={amenity.id} className="flex items-center gap-2">
+                      <Check className="w-5 h-5 text-brand-primary" />
+                      <span>{amenity.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Property Details */}
             <Card>
-              <h2 className="text-h2 mb-md">Property Details</h2>
+              <h2 className="text-h2 mb-md">{t('property.details')}</h2>
               <div className="grid grid-cols-2 gap-lg">
                 <div>
                   <p className="text-small text-neutral-text-secondary mb-1">
                     Property Type
                   </p>
-                  <p className="text-body font-medium">{property.propertyType}</p>
+                  <p className="text-body font-medium">
+                    {PROPERTY_TYPE_LABELS[property.propertyType]}
+                  </p>
                 </div>
                 <div>
                   <p className="text-small text-neutral-text-secondary mb-1">
                     Size
                   </p>
-                  <p className="text-body font-medium">{property.size} sqm</p>
+                  <p className="text-body font-medium">{property.size} {t('property.sqm')}</p>
                 </div>
                 <div>
                   <p className="text-small text-neutral-text-secondary mb-1">
@@ -321,135 +370,84 @@ export default function PropertyDetailPage() {
                 </div>
                 <div>
                   <p className="text-small text-neutral-text-secondary mb-1">
-                    Listed On
+                    Views
                   </p>
-                  <p className="text-body font-medium">
-                    {formatDate(property.createdAt)}
-                  </p>
+                  <p className="text-body font-medium">{property.views}</p>
                 </div>
-              </div>
-            </Card>
-
-            {/* Location Map - Placeholder */}
-            <Card>
-              <h2 className="text-h2 mb-md">Location</h2>
-              <div className="bg-neutral-bg rounded-lg h-[400px] flex items-center justify-center">
-                <p className="text-neutral-text-secondary">
-                  Map integration coming soon
-                </p>
-              </div>
-              <div className="mt-md">
-                <p className="text-body font-medium">{property.location.address}</p>
-                <p className="text-small text-neutral-text-secondary">
-                  {property.location.neighborhood}, {property.location.city}
-                </p>
               </div>
             </Card>
           </div>
 
-          {/* Sidebar - Owner Card */}
-          <div className="lg:col-span-1">
-            <motion.div
-              className="sticky top-20"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <Card>
-                <div className="text-center mb-lg">
-                  <div className="w-20 h-20 rounded-full bg-brand-primary/10 mx-auto mb-md flex items-center justify-center">
-                    <span className="text-h1 text-brand-primary">
-                      {property.owner.firstName[0]}{property.owner.lastName[0]}
-                    </span>
-                  </div>
-                  <h3 className="text-h3 font-semibold">
-                    {property.owner.firstName} {property.owner.lastName}
-                  </h3>
-                  <p className="text-small text-neutral-text-secondary">
-                    Property Owner
-                  </p>
+          {/* Sidebar */}
+          <div className="space-y-lg">
+            {/* Contact Card */}
+            <Card>
+              <h3 className="text-h3 mb-md">Contact Property Owner</h3>
+              <div className="space-y-md">
+                <Button
+                  variant="primary"
+                  fullWidth
+                  leftIcon={<Mail className="w-5 h-5" />}
+                  onClick={() => setShowInquiryModal(true)}
+                >
+                  {t('inquiry.sendInquiry')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  leftIcon={<Phone className="w-5 h-5" />}
+                  onClick={() => setShowContactModal(true)}
+                >
+                  {t('property.contact_owner')}
+                </Button>
+              </div>
+            </Card>
+
+            {/* Owner Card */}
+            <Card>
+              <h3 className="text-h3 mb-md">Property Owner</h3>
+              <div className="flex items-center gap-md mb-md">
+                <div className="w-16 h-16 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                  <span className="text-h3 font-bold text-brand-primary">
+                    {property.owner.name.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-body font-semibold">{property.owner.name}</p>
                   {property.owner.verified && (
-                    <Badge variant="info" className="mt-2">
-                      <Check className="w-3 h-3 mr-1" />
-                      Verified Owner
-                    </Badge>
+                    <p className="text-small text-status-success flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      {t('property.verified')}
+                    </p>
                   )}
-                  <div className="flex items-center justify-center gap-1 mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(property.owner.rating)
-                            ? 'fill-brand-secondary text-brand-secondary'
-                            : 'text-neutral-border'
-                        }`}
-                      />
-                    ))}
-                    <span className="text-small text-neutral-text-secondary ml-1">
-                      ({property.owner.reviewCount})
-                    </span>
-                  </div>
                 </div>
-
-                <div className="space-y-md">
-                  <Button
-                    variant="primary"
-                    fullWidth
-                    onClick={() => setShowInquiryModal(true)}
-                  >
-                    Send Inquiry
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    onClick={() => setShowContactModal(true)}
-                    leftIcon={<Phone className="w-5 h-5" />}
-                  >
-                    Contact Owner
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    leftIcon={<Calendar className="w-5 h-5" />}
-                  >
-                    Schedule Visit
-                  </Button>
-                </div>
-
-                <div className="mt-lg pt-lg border-t">
-                  <p className="text-tiny text-neutral-text-secondary text-center">
-                    Response time: Usually within 24 hours
-                  </p>
-                </div>
-              </Card>
-            </motion.div>
+              </div>
+            </Card>
           </div>
         </div>
-      </section>
 
-      {/* Similar Properties */}
-      {similarProperties.length > 0 && (
-        <section className="bg-neutral-surface py-3xl">
-          <div className="container-custom">
-            <h2 className="text-h1 mb-xl">Similar Properties</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
+        {/* Similar Properties */}
+        {similarProperties.length > 0 && (
+          <div className="mt-3xl">
+            <h2 className="text-h2 mb-lg">Similar Properties</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
               {similarProperties.map((prop) => (
                 <PropertyCard
                   key={prop.id}
                   property={prop}
-                  onClick={(p) => router.push(`/properties/${p.id}`)}
+                  onClick={() => router.push(`/properties/${prop.id}`)}
                 />
               ))}
             </div>
           </div>
-        </section>
-      )}
+        )}
+      </div>
 
       {/* Contact Modal */}
       <Modal
         isOpen={showContactModal}
         onClose={() => setShowContactModal(false)}
         title="Contact Owner"
-        description="Get in touch with the property owner"
       >
         <div className="space-y-md">
           <div className="flex items-center gap-md p-md bg-neutral-bg rounded-lg">
@@ -473,25 +471,38 @@ export default function PropertyDetailPage() {
       <Modal
         isOpen={showInquiryModal}
         onClose={() => setShowInquiryModal(false)}
-        title="Send Inquiry"
-        description="Send a message to the property owner"
+        title={t('inquiry.sendInquiry')}
       >
-        <form className="space-y-md">
-          <Input label="Your Name" type="text" required />
-          <Input label="Email" type="email" required />
-          <Input label="Phone" type="tel" required />
+        <div className="space-y-md">
           <Textarea
-            label="Message"
-            placeholder="I'm interested in this property..."
+            label={t('inquiry.yourMessage')}
+            placeholder={t('inquiry.messagePlaceholder')}
             rows={5}
             required
             showCharCount
             maxLength={500}
+            value={inquiryForm.message}
+            onChange={(e) =>
+              setInquiryForm({ ...inquiryForm, message: e.target.value })
+            }
           />
-          <Button type="submit" variant="primary" fullWidth>
-            Send Inquiry
+          <Input
+            type="date"
+            label={t('inquiry.preferredViewingDate')}
+            value={inquiryForm.preferredViewingDate}
+            onChange={(e) =>
+              setInquiryForm({ ...inquiryForm, preferredViewingDate: e.target.value })
+            }
+          />
+          <Button
+            variant="primary"
+            fullWidth
+            isLoading={submittingInquiry}
+            onClick={handleSubmitInquiry}
+          >
+            {t('common.submit')}
           </Button>
-        </form>
+        </div>
       </Modal>
     </div>
   );

@@ -2,26 +2,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Building2,
   MessageSquare,
   Eye,
-  Calendar,
   TrendingUp,
   Plus,
   Edit,
-  Trash2,
   MoreVertical,
+  Mail,
+  Phone,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { DashboardStatsSkeleton, ListSkeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { apiClient } from '@/lib/api-client';
+import { ErrorHandler } from '@/lib/utils/error-handler';
+import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
-import type { Property, DashboardStats } from '@/types';
-import { formatCurrency } from '@/lib/utils';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useLanguageStore } from '@/lib/store/language-store';
+import { PROPERTY_STATUS_LABELS } from '@/types';
+import type { Property, Inquiry, DashboardStats } from '@/types';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,13 +45,26 @@ const itemVariants = {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+  const { t } = useLanguageStore();
+
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [stats, setStats] = useState({
+    activeListings: 0,
+    totalInquiries: 0,
+    totalViews: 0,
+    monthlyRevenue: 0,
+  });
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'OWNER') {
+    if (!isAuthenticated) {
       router.push('/login');
+      return;
+    }
+
+    if (user?.role !== 'OWNER') {
+      router.push('/');
       return;
     }
 
@@ -53,48 +72,61 @@ export default function DashboardPage() {
   }, [isAuthenticated, user, router]);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
     try {
-      // TODO: Replace with actual API calls
-      // const statsResponse = await apiClient.get<DashboardStats>('/dashboard/stats');
-      // const propertiesResponse = await apiClient.get<Property[]>('/properties/my-listings');
-      
-      // Mock data
+      // Fetch user's properties
+      const propertiesResponse = await apiClient.getProperties({
+        ownerId: user?.id,
+        limit: 10,
+      });
+      setProperties(propertiesResponse.data);
+
+      // Calculate stats from properties
+      const activeCount = propertiesResponse.data.filter(
+        (p) => p.status === 'AVAILABLE'
+      ).length;
+      const totalViews = propertiesResponse.data.reduce((sum, p) => sum + p.views, 0);
+      const totalInquiriesCount = propertiesResponse.data.reduce(
+        (sum, p) => sum + p.inquiries,
+        0
+      );
+
       setStats({
-        activeListings: 8,
-        totalInquiries: 24,
-        totalViews: 156,
-        bookedProperties: 5,
-        monthlyRevenue: 640000,
-        recentActivity: [
-          {
-            id: '1',
-            type: 'INQUIRY',
-            description: 'New inquiry on "Westlands Shop"',
-            timestamp: new Date().toISOString(),
-            propertyId: '1',
-          },
-          {
-            id: '2',
-            type: 'VIEW',
-            description: 'Property viewed 12 times today',
-            timestamp: new Date().toISOString(),
-            propertyId: '2',
-          },
-        ],
+        activeListings: activeCount,
+        totalInquiries: totalInquiriesCount,
+        totalViews,
+        monthlyRevenue: 0, // Would need to fetch from payments endpoint
       });
 
-      setProperties([]);
-      setLoading(false);
+      // Fetch recent inquiries for all properties
+      if (propertiesResponse.data.length > 0) {
+        const allInquiries: Inquiry[] = [];
+        for (const property of propertiesResponse.data.slice(0, 3)) {
+          try {
+            const propertyInquiries = await apiClient.getPropertyInquiries(property.id);
+            allInquiries.push(...propertyInquiries);
+          } catch (error) {
+            // Continue even if one fails
+          }
+        }
+        setInquiries(allInquiries.slice(0, 5));
+      }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      ErrorHandler.handle(error, 'Failed to load dashboard data');
+    } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  if (!user || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="spinner w-12 h-12" />
+      <div className="min-h-screen bg-neutral-bg py-xl">
+        <div className="container-custom">
+          <DashboardStatsSkeleton />
+          <div className="mt-xl">
+            <ListSkeleton count={5} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -109,9 +141,9 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
         >
           <div>
-            <h1 className="text-h1 mb-2">Dashboard</h1>
+            <h1 className="text-h1 mb-2">{t('dashboard.welcome')}</h1>
             <p className="text-body text-neutral-text-secondary">
-              Welcome back, {user?.firstName}! Here's your property overview.
+              Welcome back, {user.firstName}! Here's your property overview.
             </p>
           </div>
           <Button
@@ -119,7 +151,7 @@ export default function DashboardPage() {
             leftIcon={<Plus className="w-5 h-5" />}
             href="/dashboard/properties/new"
           >
-            Add Property
+            {t('dashboard.addProperty')}
           </Button>
         </motion.div>
 
@@ -131,154 +163,108 @@ export default function DashboardPage() {
           animate="visible"
         >
           <motion.div variants={itemVariants}>
-            <Card hoverable>
-              <CardContent>
+            <Card>
+              <div className="p-lg">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-small text-neutral-text-secondary mb-1">
-                      Active Listings
+                      {t('dashboard.activeListings')}
                     </p>
-                    <p className="text-h1 font-bold">{stats?.activeListings || 0}</p>
+                    <p className="text-h1 font-bold">{stats.activeListings}</p>
                   </div>
                   <div className="p-3 bg-brand-primary/10 rounded-lg">
                     <Building2 className="w-6 h-6 text-brand-primary" />
                   </div>
                 </div>
-                <p className="text-tiny text-status-success mt-2">
-                  ↑ 12% from last month
-                </p>
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card hoverable>
-              <CardContent>
+            <Card>
+              <div className="p-lg">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-small text-neutral-text-secondary mb-1">
-                      Total Inquiries
+                      {t('dashboard.totalInquiries')}
                     </p>
-                    <p className="text-h1 font-bold">{stats?.totalInquiries || 0}</p>
+                    <p className="text-h1 font-bold">{stats.totalInquiries}</p>
                   </div>
                   <div className="p-3 bg-brand-secondary/10 rounded-lg">
                     <MessageSquare className="w-6 h-6 text-brand-secondary" />
                   </div>
                 </div>
-                <p className="text-tiny text-status-success mt-2">
-                  ↑ 8% from last month
-                </p>
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card hoverable>
-              <CardContent>
+            <Card>
+              <div className="p-lg">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-small text-neutral-text-secondary mb-1">
-                      Total Views
+                      {t('dashboard.totalViews')}
                     </p>
-                    <p className="text-h1 font-bold">{stats?.totalViews || 0}</p>
+                    <p className="text-h1 font-bold">{stats.totalViews}</p>
                   </div>
                   <div className="p-3 bg-status-info/10 rounded-lg">
                     <Eye className="w-6 h-6 text-status-info" />
                   </div>
                 </div>
-                <p className="text-tiny text-status-success mt-2">
-                  ↑ 15% from last month
-                </p>
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card hoverable>
-              <CardContent>
+            <Card>
+              <div className="p-lg">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-small text-neutral-text-secondary mb-1">
-                      Monthly Revenue
+                      {t('dashboard.monthlyRevenue')}
                     </p>
                     <p className="text-h1 font-bold">
-                      {formatCurrency(stats?.monthlyRevenue || 0)}
+                      {formatCurrency(stats.monthlyRevenue)}
                     </p>
                   </div>
                   <div className="p-3 bg-status-success/10 rounded-lg">
                     <TrendingUp className="w-6 h-6 text-status-success" />
                   </div>
                 </div>
-                <p className="text-tiny text-status-success mt-2">
-                  ↑ 20% from last month
-                </p>
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl">
-          {/* Recent Activity */}
+          {/* My Properties */}
           <motion.div
             className="lg:col-span-2"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
             <Card>
-              <CardHeader title="Recent Activity" />
-              <CardContent>
-                {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-                  <div className="space-y-md">
-                    {stats.recentActivity.map((activity) => (
-                      <div
-                        key={activity.id}
-                        className="flex items-start gap-md p-md rounded-lg hover:bg-neutral-bg transition-colors"
-                      >
-                        <div className="p-2 bg-brand-primary/10 rounded-full">
-                          {activity.type === 'INQUIRY' ? (
-                            <MessageSquare className="w-5 h-5 text-brand-primary" />
-                          ) : (
-                            <Eye className="w-5 h-5 text-brand-primary" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-body">{activity.description}</p>
-                          <p className="text-tiny text-neutral-text-secondary mt-1">
-                            {new Date(activity.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-neutral-text-secondary py-xl">
-                    No recent activity
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* My Properties */}
-            <Card className="mt-xl">
-              <CardHeader
-                title="My Properties"
-                action={
+              <div className="p-lg border-b border-neutral-border">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-h2">{t('dashboard.myProperties')}</h2>
                   <Button
                     variant="text"
                     size="sm"
                     href="/dashboard/properties"
                   >
-                    View All
+                    {t('dashboard.viewAllProperties')}
                   </Button>
-                }
-              />
-              <CardContent>
+                </div>
+              </div>
+              <div className="p-lg">
                 {properties.length > 0 ? (
                   <div className="space-y-md">
-                    {properties.map((property) => (
+                    {properties.slice(0, 5).map((property) => (
                       <div
                         key={property.id}
-                        className="flex items-center gap-md p-md rounded-lg hover:bg-neutral-bg transition-colors"
+                        className="flex items-center gap-md p-md rounded-lg hover:bg-neutral-bg transition-colors cursor-pointer"
+                        onClick={() => router.push(`/properties/${property.id}`)}
                       >
                         <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
                           <Image
@@ -293,17 +279,19 @@ export default function DashboardPage() {
                             {property.title}
                           </h3>
                           <p className="text-small text-neutral-text-secondary">
-                            {formatCurrency(property.price)}/month • {property.size} sqm
+                            {formatCurrency(property.price)}/month • {property.size} m²
                           </p>
                           <div className="flex items-center gap-md mt-1">
-                            <span className="text-tiny text-neutral-text-secondary">
-                              👁 {property.views}
+                            <span className="text-tiny text-neutral-text-secondary flex items-center gap-1">
+                              <Eye className="w-3 h-3" />
+                              {property.views}
                             </span>
-                            <span className="text-tiny text-neutral-text-secondary">
-                              💬 {property.inquiries}
+                            <span className="text-tiny text-neutral-text-secondary flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" />
+                              {property.inquiries}
                             </span>
                             <Badge variant="success" className="text-tiny">
-                              {property.status}
+                              {PROPERTY_STATUS_LABELS[property.status]}
                             </Badge>
                           </div>
                         </div>
@@ -311,105 +299,117 @@ export default function DashboardPage() {
                           <Button
                             variant="text"
                             size="sm"
-                            href={`/dashboard/properties/${property.id}/edit`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/dashboard/properties/${property.id}/edit`);
+                            }}
                           >
                             <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="text" size="sm">
-                            <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-xl">
-                    <Building2 className="w-16 h-16 mx-auto mb-md text-neutral-border" />
-                    <p className="text-h3 mb-md">No properties yet</p>
-                    <p className="text-body text-neutral-text-secondary mb-lg">
-                      Start by adding your first property listing
-                    </p>
-                    <Button
-                      variant="primary"
-                      leftIcon={<Plus className="w-5 h-5" />}
-                      href="/dashboard/properties/new"
-                    >
-                      Add Property
-                    </Button>
-                  </div>
+                  <EmptyState
+                    icon={Building2}
+                    title={t('dashboard.noPropertiesYet')}
+                    description={t('dashboard.noPropertiesDescription')}
+                    actionLabel={t('dashboard.addProperty')}
+                    actionHref="/dashboard/properties/new"
+                  />
                 )}
-              </CardContent>
+              </div>
             </Card>
           </motion.div>
 
-          {/* Quick Actions */}
+          {/* Recent Inquiries & Quick Actions */}
           <motion.div
+            className="space-y-lg"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
           >
+            {/* Quick Actions */}
             <Card>
-              <CardHeader title="Quick Actions" />
-              <CardContent>
-                <div className="space-y-md">
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    leftIcon={<Plus className="w-5 h-5" />}
-                    href="/dashboard/properties/new"
-                  >
-                    Add New Property
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    leftIcon={<MessageSquare className="w-5 h-5" />}
-                    href="/dashboard/inquiries"
-                  >
-                    View Inquiries
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    leftIcon={<Calendar className="w-5 h-5" />}
-                    href="/dashboard/bookings"
-                  >
-                    Manage Bookings
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    leftIcon={<TrendingUp className="w-5 h-5" />}
-                    href="/dashboard/analytics"
-                  >
-                    View Analytics
-                  </Button>
-                </div>
-              </CardContent>
+              <div className="p-lg border-b border-neutral-border">
+                <h3 className="text-h3">{t('dashboard.quickActions')}</h3>
+              </div>
+              <div className="p-lg space-y-md">
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  leftIcon={<Plus className="w-5 h-5" />}
+                  href="/dashboard/properties/new"
+                >
+                  {t('dashboard.addProperty')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  leftIcon={<MessageSquare className="w-5 h-5" />}
+                  href="/dashboard/inquiries"
+                >
+                  {t('dashboard.viewInquiries')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  leftIcon={<Eye className="w-5 h-5" />}
+                  href="/dashboard/analytics"
+                >
+                  View Analytics
+                </Button>
+              </div>
             </Card>
 
-            {/* Tips Card */}
-            <Card className="mt-xl">
-              <CardHeader title="💡 Tips for Success" />
-              <CardContent>
-                <ul className="space-y-md text-small">
-                  <li className="flex gap-2">
-                    <span>✓</span>
-                    <span>Upload high-quality photos to get 40% more views</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span>✓</span>
-                    <span>Respond to inquiries within 24 hours</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span>✓</span>
-                    <span>Keep your availability calendar updated</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span>✓</span>
-                    <span>Verify your properties for more trust</span>
-                  </li>
-                </ul>
-              </CardContent>
+            {/* Recent Inquiries */}
+            <Card>
+              <div className="p-lg border-b border-neutral-border">
+                <h3 className="text-h3">Recent Inquiries</h3>
+              </div>
+              <div className="p-lg">
+                {inquiries.length > 0 ? (
+                  <div className="space-y-md">
+                    {inquiries.map((inquiry) => (
+                      <div
+                        key={inquiry.id}
+                        className="p-md bg-neutral-bg rounded-lg"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="text-small font-semibold">
+                            {inquiry.tenant.name}
+                          </p>
+                          <Badge
+                            variant={
+                              inquiry.status === 'PENDING'
+                                ? 'warning'
+                                : inquiry.status === 'RESPONDED'
+                                ? 'success'
+                                : 'secondary'
+                            }
+                            className="text-tiny"
+                          >
+                            {inquiry.status}
+                          </Badge>
+                        </div>
+                        <p className="text-tiny text-neutral-text-secondary mb-2">
+                          {inquiry.property?.title || 'Property'}
+                        </p>
+                        <p className="text-small text-neutral-text-primary line-clamp-2 mb-2">
+                          {inquiry.message}
+                        </p>
+                        <p className="text-tiny text-neutral-text-secondary">
+                          {formatRelativeTime(inquiry.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-small text-neutral-text-secondary text-center py-lg">
+                    No inquiries yet
+                  </p>
+                )}
+              </div>
             </Card>
           </motion.div>
         </div>
