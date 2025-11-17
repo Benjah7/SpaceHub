@@ -1,6 +1,6 @@
 /**
- * API Transformers
- * Handles conversion between backend and frontend data structures
+ * API Transformers - COMPLETE FIX
+ * Copy this ENTIRE file to: frontend/lib/api/transformers.ts
  */
 
 import { PropertyType, PropertyStatus } from '@/types';
@@ -11,17 +11,24 @@ import type {
   Inquiry,
   Review,
   Notification,
+  PaginatedResponse,
 } from '@/types';
 
 import type {
   BackendProperty,
   BackendPropertyType,
   BackendPropertyStatus,
+  BackendPropertyImage,
   BackendUser,
   BackendInquiry,
   BackendReview,
   BackendNotification,
+  BackendPaginatedResponse,
+  BackendUserRole,
+  BackendInquiryStatus,
+  BackendPaymentStatus,
 } from '@/types/backend';
+
 /**
  * Property Transformer
  */
@@ -46,20 +53,35 @@ export class PropertyTransformer {
         city: 'Nairobi',
         county: 'Nairobi',
       },
-      images: backend.images?.map((img) => ({
+      images: (backend.images || []).map((img: BackendPropertyImage) => ({
         id: String(img.id),
         url: img.url,
         alt: backend.propertyName,
         isPrimary: img.isPrimary,
-      })) || [],
-      amenities: backend.amenities?.map((amenity) => ({
+      })),
+      amenities: (backend.amenities || []).map((amenity: string) => ({
         id: amenity,
         name: amenity,
         icon: 'check',
-      })) || [],
+      })),
       verified: backend.owner?.verified || false,
       ownerId: String(backend.ownerId),
-      owner: backend.owner ? UserTransformer.toFrontendOwner(backend.owner) : ({} as PropertyOwner),
+      owner: backend.owner
+        ? UserTransformer.toPropertyOwner(backend.owner)
+        : {
+            id: String(backend.ownerId),
+            email: '',
+            name: '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+            role: 'OWNER' as const,
+            verified: false,
+            createdAt: backend.createdAt,
+            properties: [],
+            rating: 0,
+            reviewCount: 0,
+          },
       availableFrom: backend.createdAt,
       createdAt: backend.createdAt,
       updatedAt: backend.updatedAt,
@@ -69,80 +91,57 @@ export class PropertyTransformer {
   }
 
   /**
-   * Convert frontend property data to backend DTO
-   */
-  static toBackendCreate(frontend: Partial<Property>) {
-    return {
-      propertyName: frontend.title || '',
-      description: frontend.description || '',
-      propertyType: frontend.propertyType as BackendPropertyType,
-      monthlyRent: frontend.price || 0,
-      squareFeet: frontend.size || 0,
-      address: frontend.location?.address || '',
-      neighborhood: frontend.location?.neighborhood || '',
-      latitude: frontend.location?.lat || 0,
-      longitude: frontend.location?.lng || 0,
-      bedrooms: 0,
-      bathrooms: 0,
-      amenities: frontend.amenities?.map((a) => a.name) || [],
-    };
-  }
-
-  /**
-   * Convert frontend property update to backend DTO
-   */
-  static toBackendUpdate(frontend: Partial<Property>) {
-    const update: any = {};
-    
-    if (frontend.title) update.propertyName = frontend.title;
-    if (frontend.description) update.description = frontend.description;
-    if (frontend.price) update.monthlyRent = frontend.price;
-    if (frontend.size) update.squareFeet = frontend.size;
-    if (frontend.location?.address) update.address = frontend.location.address;
-    if (frontend.location?.neighborhood) update.neighborhood = frontend.location.neighborhood;
-    if (frontend.amenities) update.amenities = frontend.amenities.map((a) => a.name);
-    if (frontend.status) update.status = PropertyTransformer.mapPropertyStatusToBackend(frontend.status);
-    
-    return update;
-  }
-
-  /**
    * Map backend property type to frontend
    */
-  private static mapPropertyType(type: BackendPropertyType): PropertyType {
-    const mapping: Record<BackendPropertyType, PropertyType> = {
-      RETAIL: PropertyType.RETAIL,
-      OFFICE: PropertyType.OFFICE,
-      KIOSK: PropertyType.KIOSK,
-      STALL: PropertyType.STALL,
-    };
-    return mapping[type] || PropertyType.RETAIL;
+  static mapPropertyType(backendType: BackendPropertyType): PropertyType {
+    const type = String(backendType);
+    switch (type) {
+      case 'RETAIL':
+        return PropertyType.RETAIL;
+      case 'OFFICE':
+        return PropertyType.OFFICE;
+      case 'KIOSK':
+        return PropertyType.KIOSK;
+      case 'STALL':
+        return PropertyType.STALL;
+      default:
+        return PropertyType.RETAIL;
+    }
+  }
+
+  /**
+   * Map frontend property type to backend
+   */
+  static mapPropertyTypeToBackend(frontendType: PropertyType): BackendPropertyType {
+    const type = String(frontendType);
+    return type as BackendPropertyType;
   }
 
   /**
    * Map backend property status to frontend
    */
-  private static mapPropertyStatus(status: BackendPropertyStatus): PropertyStatus {
-    const mapping: Record<BackendPropertyStatus, PropertyStatus> = {
-      AVAILABLE: PropertyStatus.AVAILABLE,
-      RENTED: PropertyStatus.RENTED,
-      PENDING: PropertyStatus.PENDING,
-      INACTIVE: PropertyStatus.INACTIVE,
-    };
-    return mapping[status] || PropertyStatus.AVAILABLE;
+  static mapPropertyStatus(backendStatus: BackendPropertyStatus): PropertyStatus {
+    const status = String(backendStatus);
+    switch (status) {
+      case 'AVAILABLE':
+        return PropertyStatus.AVAILABLE;
+      case 'RENTED':
+        return PropertyStatus.RENTED;
+      case 'PENDING':
+        return PropertyStatus.PENDING;
+      case 'INACTIVE':
+        return PropertyStatus.INACTIVE;
+      default:
+        return PropertyStatus.AVAILABLE;
+    }
   }
 
   /**
    * Map frontend property status to backend
    */
-  private static mapPropertyStatusToBackend(status: PropertyStatus): BackendPropertyStatus {
-    const mapping: Record<PropertyStatus, BackendPropertyStatus> = {
-      [PropertyStatus.AVAILABLE]: 'AVAILABLE' as BackendPropertyStatus,
-      [PropertyStatus.RENTED]: 'RENTED' as BackendPropertyStatus,
-      [PropertyStatus.PENDING]: 'PENDING' as BackendPropertyStatus,
-      [PropertyStatus.INACTIVE]: 'INACTIVE' as BackendPropertyStatus,
-    };
-    return mapping[status] || 'AVAILABLE' as BackendPropertyStatus;
+  static mapPropertyStatusToBackend(frontendStatus: PropertyStatus): BackendPropertyStatus {
+    const status = String(frontendStatus);
+    return status as BackendPropertyStatus;
   }
 }
 
@@ -155,7 +154,7 @@ export class UserTransformer {
    */
   static toFrontend(backend: BackendUser): User {
     const nameParts = backend.name.split(' ');
-    const firstName = nameParts[0] || '';
+    const firstName = nameParts[0] || backend.name;
     const lastName = nameParts.slice(1).join(' ') || '';
 
     return {
@@ -165,7 +164,7 @@ export class UserTransformer {
       firstName,
       lastName,
       phone: backend.phone,
-      role: backend.role as 'OWNER' | 'TENANT' | 'ADMIN',
+      role: String(backend.role) as 'OWNER' | 'TENANT' | 'ADMIN',
       verified: backend.verified,
       avatar: backend.profileImage,
       createdAt: backend.createdAt,
@@ -173,9 +172,9 @@ export class UserTransformer {
   }
 
   /**
-   * Convert backend user to frontend property owner
+   * Convert backend user to property owner format
    */
-  static toFrontendOwner(backend: BackendUser): PropertyOwner {
+  static toPropertyOwner(backend: BackendUser): PropertyOwner {
     const baseUser = UserTransformer.toFrontend(backend);
     return {
       ...baseUser,
@@ -197,27 +196,56 @@ export class InquiryTransformer {
   static toFrontend(backend: BackendInquiry): Inquiry {
     return {
       id: String(backend.id),
-      propertyId: String(backend.propertyId),
-      property: backend.property ? PropertyTransformer.toFrontend(backend.property) : ({} as Property),
-      tenantId: String(backend.tenantId),
-      tenant: backend.tenant ? UserTransformer.toFrontend(backend.tenant) : ({} as User),
       message: backend.message,
-      status: backend.status as 'PENDING' | 'RESPONDED' | 'CLOSED',
-      response: backend.response,
+      status: String(backend.status) as 'PENDING' | 'RESPONDED' | 'CLOSED',
+      propertyId: String(backend.propertyId),
+      property: backend.property
+        ? PropertyTransformer.toFrontend(backend.property)
+        : {
+            id: String(backend.propertyId),
+            title: '',
+            description: '',
+            propertyType: PropertyType.RETAIL,
+            status: PropertyStatus.AVAILABLE,
+            price: 0,
+            size: 0,
+            location: {
+              lat: 0,
+              lng: 0,
+              address: '',
+              neighborhood: '',
+              city: 'Nairobi',
+              county: 'Nairobi',
+            },
+            images: [],
+            amenities: [],
+            verified: false,
+            ownerId: '',
+            owner: {} as PropertyOwner,
+            availableFrom: '',
+            createdAt: '',
+            updatedAt: '',
+            views: 0,
+            inquiries: 0,
+          },
+      tenantId: String(backend.tenantId),
+      tenant: backend.tenant
+        ? UserTransformer.toFrontend(backend.tenant)
+        : {
+            id: String(backend.tenantId),
+            email: '',
+            name: '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+            role: 'TENANT' as const,
+            verified: false,
+            createdAt: '',
+          },
       preferredViewingDate: backend.preferredViewingDate,
+      response: backend.response,
       createdAt: backend.createdAt,
       updatedAt: backend.updatedAt,
-    };
-  }
-
-  /**
-   * Convert frontend inquiry data to backend DTO
-   */
-  static toBackendCreate(propertyId: number, message: string, preferredViewingDate?: string) {
-    return {
-      message,
-      propertyId,
-      preferredViewingDate: preferredViewingDate ? new Date(preferredViewingDate) : undefined,
     };
   }
 }
@@ -232,24 +260,25 @@ export class ReviewTransformer {
   static toFrontend(backend: BackendReview): Review {
     return {
       id: String(backend.id),
-      propertyId: String(backend.propertyId),
-      userId: String(backend.userId),
-      user: backend.user ? UserTransformer.toFrontend(backend.user) : ({} as User),
       rating: backend.rating,
       comment: backend.comment,
+      propertyId: String(backend.propertyId),
+      userId: String(backend.userId),
+      user: backend.user
+        ? UserTransformer.toFrontend(backend.user)
+        : {
+            id: String(backend.userId),
+            email: '',
+            name: '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+            role: 'TENANT' as const,
+            verified: false,
+            createdAt: '',
+          },
       createdAt: backend.createdAt,
       updatedAt: backend.updatedAt,
-    };
-  }
-
-  /**
-   * Convert frontend review data to backend DTO
-   */
-  static toBackendCreate(propertyId: number, rating: number, comment: string) {
-    return {
-      rating,
-      comment,
-      propertyId,
     };
   }
 }
@@ -262,10 +291,18 @@ export class NotificationTransformer {
    * Convert backend notification to frontend notification
    */
   static toFrontend(backend: BackendNotification): Notification {
+    const mapType = (type: string): 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' => {
+      const upperType = type.toUpperCase();
+      if (['INFO', 'SUCCESS', 'WARNING', 'ERROR'].includes(upperType)) {
+        return upperType as 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+      }
+      return 'INFO';
+    };
+
     return {
       id: String(backend.id),
       userId: String(backend.userId),
-      type: NotificationTransformer.mapNotificationType(backend.type),
+      type: mapType(backend.type),
       title: backend.title,
       message: backend.message,
       read: backend.read,
@@ -273,18 +310,42 @@ export class NotificationTransformer {
       actionUrl: backend.metadata?.actionUrl,
     };
   }
+}
+
+/**
+ * Payment Status Transformer
+ */
+export class PaymentTransformer {
+  /**
+   * Map backend payment status to frontend
+   */
+  static mapPaymentStatus(backendStatus: BackendPaymentStatus): 'PENDING' | 'PAID' | 'FAILED' {
+    const status = String(backendStatus);
+    switch (status) {
+      case 'COMPLETED':
+        return 'PAID';
+      case 'FAILED':
+        return 'FAILED';
+      case 'PENDING':
+      case 'REFUNDED':
+      default:
+        return 'PENDING';
+    }
+  }
 
   /**
-   * Map backend notification type to frontend
+   * Map frontend payment status to backend
    */
-  private static mapNotificationType(type: string): 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' {
-    const mapping: Record<string, any> = {
-      info: 'INFO',
-      success: 'SUCCESS',
-      warning: 'WARNING',
-      error: 'ERROR',
-    };
-    return mapping[type.toLowerCase()] || 'INFO';
+  static mapPaymentStatusToBackend(frontendStatus: 'PENDING' | 'PAID' | 'FAILED'): string {
+    switch (frontendStatus) {
+      case 'PAID':
+        return 'COMPLETED';
+      case 'FAILED':
+        return 'FAILED';
+      case 'PENDING':
+      default:
+        return 'PENDING';
+    }
   }
 }
 
@@ -293,15 +354,52 @@ export class NotificationTransformer {
  */
 export class PaginatedResponseTransformer {
   /**
-   * Transform paginated backend response to frontend
+   * Convert backend paginated response to frontend paginated response
    */
   static toFrontend<T, U>(
-    backendResponse: { data: T[]; pagination: any },
+    backend: BackendPaginatedResponse<T>,
     itemTransformer: (item: T) => U
-  ) {
+  ): PaginatedResponse<U> {
     return {
-      data: backendResponse.data.map(itemTransformer),
-      pagination: backendResponse.pagination,
+      data: backend.data.map(itemTransformer),
+      pagination: {
+        page: backend.pagination.page,
+        limit: backend.pagination.limit,
+        total: backend.pagination.total,
+        totalPages: backend.pagination.totalPages,
+      },
     };
+  }
+}
+
+/**
+ * Utility function to safely transform any backend data
+ */
+export function safeTransform<T, U>(
+  data: T | null | undefined,
+  transformer: (data: T) => U
+): U | null {
+  if (!data) return null;
+  try {
+    return transformer(data);
+  } catch (error) {
+    console.error('Transform error:', error);
+    return null;
+  }
+}
+
+/**
+ * Utility function to safely transform arrays
+ */
+export function safeTransformArray<T, U>(
+  data: T[] | null | undefined,
+  transformer: (data: T) => U
+): U[] {
+  if (!data || !Array.isArray(data)) return [];
+  try {
+    return data.map(transformer);
+  } catch (error) {
+    console.error('Transform array error:', error);
+    return [];
   }
 }
