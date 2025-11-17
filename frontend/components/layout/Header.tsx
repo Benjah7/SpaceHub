@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
@@ -16,10 +16,18 @@ export const Header: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
   const { language, setLanguage, t } = useLanguageStore();
 
+  // Dynamic navigation based on user role
   const navigation = [
     { name: t('nav.home'), href: '/' },
     { name: t('nav.listings'), href: '/listings' },
-    ...(isAuthenticated ? [{ name: t('nav.dashboard'), href: '/dashboard' }] : []),
+    ...(isAuthenticated && user?.role === 'OWNER' 
+      ? [{ name: t('nav.dashboard'), href: '/dashboard' }] 
+      : []
+    ),
+    ...(isAuthenticated && user?.role === 'TENANT' 
+      ? [{ name: t('nav.profile'), href: '/profile' }] 
+      : []
+    ),
   ];
 
   const toggleLanguage = () => {
@@ -73,7 +81,7 @@ export const Header: React.FC = () => {
               <div className="flex items-center gap-md">
                 <div className="text-small">
                   <p className="font-medium text-neutral-text-primary">
-                    {user.firstName} {user.lastName}
+                    {user.name || `${user.firstName} ${user.lastName}`}
                   </p>
                   <p className="text-tiny text-neutral-text-secondary">
                     {user.role}
@@ -152,7 +160,7 @@ export const Header: React.FC = () => {
                   <div className="space-y-md pt-md border-t">
                     <div className="px-md py-2">
                       <p className="font-medium text-neutral-text-primary">
-                        {user.firstName} {user.lastName}
+                        {user.name || `${user.firstName} ${user.lastName}`}
                       </p>
                       <p className="text-tiny text-neutral-text-secondary">
                         {user.email}

@@ -248,11 +248,11 @@ export default function DashboardPropertiesPage() {
                                                         {PROPERTY_STATUS_LABELS[property.status]}
                                                     </Badge>
                                                 </div>
-                                                {property.featured && (
+                                                {/* {property.featured && (
                                                     <div className="absolute top-3 right-3">
                                                         <Badge variant='default'>Featured</Badge>
                                                     </div>
-                                                )}
+                                                )} */}
                                             </div>
 
                                             <div className="p-lg">
