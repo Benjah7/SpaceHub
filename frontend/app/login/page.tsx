@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -25,9 +25,24 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const searchParams = useSearchParams();
+  const { login, isAuthenticated, isLoading } = useAuthStore();
   const { t } = useLanguageStore();
   const [showPassword, setShowPassword] = useState(false);
+
+  // ✅ Get return URL from query params
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+
+  // ✅ Redirect if already authenticated
+  React.useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      router.push(returnUrl);
+    }
+  }, [isAuthenticated, isLoading, router, returnUrl]);
 
   const {
     register,
@@ -41,29 +56,48 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
       toast.success(t('auth.loginSuccess'));
-      router.push('/dashboard');
+      router.push(returnUrl);
     } catch (error) {
       ErrorHandler.handle(error, 'Login failed');
     }
   };
 
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if already authenticated
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-neutral-bg flex items-center justify-center py-xl px-md">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center py-12 px-4">
       <motion.div
         className="w-full max-w-md"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="text-center mb-xl">
-          <h1 className="text-h1 mb-md">{t('auth.login')}</h1>
-          <p className="text-body text-neutral-text-secondary">
+        <div className="text-center mb-8">
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-neutral-900 mb-3">
+            {t('auth.login')}
+          </h1>
+          <p className="text-lg text-neutral-600">
             Welcome back! Please login to your account.
           </p>
         </div>
 
         <Card>
-          <div className="p-xl">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-lg">
+          <div className="p-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <Input
                 label={t('auth.email')}
                 type="email"
@@ -85,7 +119,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[42px] text-neutral-text-secondary hover:text-neutral-text-primary"
+                  className="absolute right-3 top-10 text-neutral-400 hover:text-neutral-600"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -95,48 +129,49 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between text-small">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-brand-primary rounded focus:ring-brand-primary"
+                    className="rounded border-neutral-300 text-brand-primary focus:ring-brand-primary"
                   />
-                  <span>{t('auth.rememberMe')}</span>
+                  <span className="ml-2 text-sm text-neutral-600">
+                    Remember me
+                  </span>
                 </label>
+
                 <Link
                   href="/forgot-password"
-                  className="text-brand-primary hover:text-brand-secondary transition-colors"
+                  className="text-sm text-brand-primary hover:text-brand-secondary"
                 >
-                  {t('auth.forgotPassword')}
+                  Forgot password?
                 </Link>
               </div>
 
               <Button
                 type="submit"
-                variant="primary"
                 fullWidth
-                isLoading={isSubmitting}
+                size="lg"
+                loading={isSubmitting}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Logging in...' : t('auth.login')}
               </Button>
             </form>
 
-            {/* Divider */}
-            <div className="relative my-lg">
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-neutral-border" />
+                <div className="w-full border-t border-neutral-200" />
               </div>
-              <div className="relative flex justify-center text-small">
-                <span className="px-2 bg-white text-neutral-text-secondary">
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-neutral-600">
                   {t('auth.dontHaveAccount')}
                 </span>
               </div>
             </div>
 
-            {/* Sign Up Link */}
             <Link href="/signup">
-              <Button variant="secondary" fullWidth>
+              <Button variant="outline" fullWidth>
                 {t('auth.createAccount')}
               </Button>
             </Link>

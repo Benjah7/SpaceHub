@@ -72,7 +72,7 @@ type CreatePropertyFormData = z.infer<typeof createPropertySchema>;
 
 export default function NewPropertyPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const { t } = useLanguageStore();
 
   const [images, setImages] = useState<File[]>([]);
@@ -100,21 +100,26 @@ export default function NewPropertyPage() {
 
   // Redirect if not authenticated or not owner
   React.useEffect(() => {
-    // Only redirect if we've checked auth and user is not an owner
-    if (isAuthenticated === false) {
-      router.push('/login');
+    // ✅ Don't redirect while auth is still loading
+    if (isLoading) {
       return;
     }
-    
-    if (isAuthenticated && user && user.role !== 'OWNER') {
+
+    // Only redirect after auth finishes loading
+    if (!isAuthenticated) {
+      router.push(`/login?returnUrl=${encodeURIComponent('/dashboard/properties/new')}`);
+      return;
+    }
+
+    if (user && user.role !== 'OWNER') {
       router.push('/');
       return;
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, isLoading, router]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     if (images.length + files.length > 10) {
       toast.error('Maximum 10 images allowed');
       return;
@@ -192,6 +197,23 @@ export default function NewPropertyPage() {
   }
 
   if (user && user.role !== 'OWNER') {
+    return null;
+  }
+
+  // ✅ Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated or not owner
+  if (!isAuthenticated || user?.role !== 'OWNER') {
     return null;
   }
 
@@ -427,19 +449,17 @@ export default function NewPropertyPage() {
                       key={amenity.id}
                       type="button"
                       onClick={() => handleAmenityToggle(amenity.id)}
-                      className={`p-md border-2 rounded-lg transition-all ${
-                        selectedAmenities.includes(amenity.id)
-                          ? 'border-brand-primary bg-brand-primary/10'
-                          : 'border-neutral-border hover:border-brand-primary/50'
-                      }`}
+                      className={`p-md border-2 rounded-lg transition-all ${selectedAmenities.includes(amenity.id)
+                        ? 'border-brand-primary bg-brand-primary/10'
+                        : 'border-neutral-border hover:border-brand-primary/50'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <Check
-                          className={`w-5 h-5 ${
-                            selectedAmenities.includes(amenity.id)
-                              ? 'text-brand-primary'
-                              : 'text-transparent'
-                          }`}
+                          className={`w-5 h-5 ${selectedAmenities.includes(amenity.id)
+                            ? 'text-brand-primary'
+                            : 'text-transparent'
+                            }`}
                         />
                         <span className="text-small font-medium">{amenity.name}</span>
                       </div>

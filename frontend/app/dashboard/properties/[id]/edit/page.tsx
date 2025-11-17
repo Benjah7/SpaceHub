@@ -79,7 +79,7 @@ export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params.id as string;
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
 
   const [newImages, setNewImages] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
@@ -103,6 +103,9 @@ export default function EditPropertyPage() {
 
   // Redirect if not authenticated or not owner
   useEffect(() => {
+
+    if (isLoading) return;
+
     // Only redirect if we've checked auth and user is not authenticated
     if (isAuthenticated === false) {
       router.push('/login');
@@ -120,7 +123,7 @@ export default function EditPropertyPage() {
       toast.error('You do not have permission to edit this property');
       router.push('/dashboard/properties');
     }
-  }, [isAuthenticated, user, property, router]);
+  }, [isAuthenticated, user, property, isLoading, router]);
 
   // Populate form with property data
   useEffect(() => {
@@ -147,9 +150,9 @@ export default function EditPropertyPage() {
 
   const handleNewImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     const currentTotal = (property?.images.length || 0) - deletedImageIds.length + newImages.length;
-    
+
     if (currentTotal + files.length > 10) {
       toast.error('Maximum 10 images allowed');
       return;
@@ -264,6 +267,23 @@ export default function EditPropertyPage() {
         </div>
       </div>
     );
+  }
+
+  // ✅ Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated or not owner
+  if (!isAuthenticated || user?.role !== 'OWNER') {
+    return null;
   }
 
   return (
@@ -480,19 +500,17 @@ export default function EditPropertyPage() {
                       key={amenity.id}
                       type="button"
                       onClick={() => handleAmenityToggle(amenity.id)}
-                      className={`p-md border-2 rounded-lg transition-all ${
-                        selectedAmenities.includes(amenity.id)
+                      className={`p-md border-2 rounded-lg transition-all ${selectedAmenities.includes(amenity.id)
                           ? 'border-brand-primary bg-brand-primary/10'
                           : 'border-neutral-border hover:border-brand-primary/50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <Check
-                          className={`w-5 h-5 ${
-                            selectedAmenities.includes(amenity.id)
+                          className={`w-5 h-5 ${selectedAmenities.includes(amenity.id)
                               ? 'text-brand-primary'
                               : 'text-transparent'
-                          }`}
+                            }`}
                         />
                         <span className="text-small font-medium">{amenity.name}</span>
                       </div>
