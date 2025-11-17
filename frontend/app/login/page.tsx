@@ -152,7 +152,7 @@ export default function LoginPage() {
                 type="submit"
                 fullWidth
                 size="lg"
-                loading={isSubmitting}
+                isLoading={isSubmitting}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Logging in...' : t('auth.login')}
@@ -171,7 +171,7 @@ export default function LoginPage() {
             </div>
 
             <Link href="/signup">
-              <Button variant="outline" fullWidth>
+              <Button variant="primary" fullWidth>
                 {t('auth.createAccount')}
               </Button>
             </Link>

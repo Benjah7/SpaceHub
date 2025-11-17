@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut, User } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { cn } from '@/lib/utils';
@@ -13,19 +14,14 @@ import { cn } from '@/lib/utils';
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { language, setLanguage, t } = useLanguageStore();
 
-  // Dynamic navigation based on user role
   const navigation = [
     { name: t('nav.home'), href: '/' },
     { name: t('nav.listings'), href: '/listings' },
     ...(isAuthenticated && user?.role === 'OWNER' 
       ? [{ name: t('nav.dashboard'), href: '/dashboard' }] 
-      : []
-    ),
-    ...(isAuthenticated && user?.role === 'TENANT' 
-      ? [{ name: t('nav.profile'), href: '/profile' }] 
       : []
     ),
   ];
@@ -38,7 +34,6 @@ export const Header: React.FC = () => {
     <header className="sticky top-0 z-50 bg-neutral-surface border-b border-neutral-border shadow-sm">
       <nav className="container-custom">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <motion.div
               className="text-h2 font-bold text-brand-primary"
@@ -49,7 +44,6 @@ export const Header: React.FC = () => {
             </motion.div>
           </Link>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-lg">
             {navigation.map((item) => (
               <Link
@@ -67,9 +61,7 @@ export const Header: React.FC = () => {
             ))}
           </div>
 
-          {/* Right Side Actions */}
           <div className="hidden md:flex items-center gap-md">
-            {/* Language Toggle */}
             <button
               onClick={toggleLanguage}
               className="px-3 py-2 text-small font-medium text-neutral-text-secondary hover:text-brand-primary transition-colors"
@@ -78,24 +70,7 @@ export const Header: React.FC = () => {
             </button>
 
             {isAuthenticated && user ? (
-              <div className="flex items-center gap-md">
-                <div className="text-small">
-                  <p className="font-medium text-neutral-text-primary">
-                    {user.name || `${user.firstName} ${user.lastName}`}
-                  </p>
-                  <p className="text-tiny text-neutral-text-secondary">
-                    {user.role}
-                  </p>
-                </div>
-                <Button
-                  variant="text"
-                  size="sm"
-                  onClick={logout}
-                  leftIcon={<LogOut className="w-4 h-4" />}
-                >
-                  {t('nav.logout')}
-                </Button>
-              </div>
+              <ProfileDropdown user={user} />
             ) : (
               <>
                 <Button variant="text" size="sm" href="/login">
@@ -108,20 +83,14 @@ export const Header: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-neutral-text-primary"
           >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
 
-        {/* Mobile Menu */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
@@ -159,25 +128,10 @@ export const Header: React.FC = () => {
                 {isAuthenticated && user ? (
                   <div className="space-y-md pt-md border-t">
                     <div className="px-md py-2">
-                      <p className="font-medium text-neutral-text-primary">
-                        {user.name || `${user.firstName} ${user.lastName}`}
-                      </p>
-                      <p className="text-tiny text-neutral-text-secondary">
-                        {user.email}
-                      </p>
+                      <p className="font-medium text-neutral-text-primary">{user.name}</p>
+                      <p className="text-tiny text-neutral-text-secondary">{user.email}</p>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      fullWidth
-                      onClick={() => {
-                        logout();
-                        setMobileMenuOpen(false);
-                      }}
-                      leftIcon={<LogOut className="w-4 h-4" />}
-                    >
-                      {t('nav.logout')}
-                    </Button>
+                    <ProfileDropdown user={user} />
                   </div>
                 ) : (
                   <div className="space-y-md pt-md border-t">
