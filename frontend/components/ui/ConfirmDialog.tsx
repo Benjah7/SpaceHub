@@ -2,18 +2,18 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '@/lib/utils';
 
-interface ConfirmDialogProps {
+export interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   description: string;
-  confirmText?: string;
-  cancelText?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
   loading?: boolean;
 }
@@ -24,30 +24,30 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   title,
   description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   variant = 'danger',
   loading = false,
 }) => {
-  const handleConfirm = () => {
-    onConfirm();
+  const handleConfirm = async () => {
+    await onConfirm();
   };
 
   const variantStyles = {
     danger: {
       icon: 'text-status-error',
-      button: 'error' as const,
-      border: 'border-status-error',
+      iconBg: 'bg-status-error/10',
+      button: 'danger' as const,
     },
     warning: {
       icon: 'text-status-warning',
-      button: 'warning' as const,
-      border: 'border-status-warning',
+      iconBg: 'bg-status-warning/10',
+      button: 'primary' as const,
     },
     info: {
       icon: 'text-status-info',
+      iconBg: 'bg-status-info/10',
       button: 'primary' as const,
-      border: 'border-status-info',
     },
   };
 
@@ -59,7 +59,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/50 z-[100]"
+            className="fixed inset-0 bg-neutral-text-primary/50 backdrop-blur-sm z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -67,67 +67,53 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           />
 
           {/* Dialog */}
-          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-md pointer-events-none">
             <motion.div
-              className={cn(
-                'bg-white dark:bg-neutral-800 rounded-xl shadow-2xl',
-                'w-full max-w-md p-lg border-2',
-                styles.border
-              )}
+              className="bg-neutral-surface rounded-2xl shadow-2xl max-w-md w-full pointer-events-auto"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button */}
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 p-2 text-neutral-text-secondary hover:text-neutral-text-primary rounded-lg hover:bg-neutral-surface transition-colors"
-                disabled={loading}
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Icon */}
-              <div className="flex justify-center mb-md">
-                <div
-                  className={cn(
-                    'w-16 h-16 rounded-full flex items-center justify-center',
-                    variant === 'danger' && 'bg-status-error/10',
-                    variant === 'warning' && 'bg-status-warning/10',
-                    variant === 'info' && 'bg-status-info/10'
-                  )}
-                >
-                  <AlertTriangle className={cn('w-8 h-8', styles.icon)} />
+              {/* Header */}
+              <div className="p-lg border-b border-neutral-border">
+                <div className="flex items-start gap-md">
+                  <div className={cn('p-3 rounded-lg flex-shrink-0', styles.iconBg)}>
+                    <AlertTriangle className={cn('w-6 h-6', styles.icon)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-h3 mb-2">{title}</h3>
+                    <p className="text-body text-neutral-text-secondary">{description}</p>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="text-neutral-text-tertiary hover:text-neutral-text-primary transition-colors flex-shrink-0"
+                    disabled={loading}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
-              {/* Title */}
-              <h3 className="text-h2 text-center mb-md">{title}</h3>
-
-              {/* Description */}
-              <p className="text-body text-neutral-text-secondary text-center mb-xl">
-                {description}
-              </p>
-
               {/* Actions */}
-              <div className="flex gap-md">
+              <div className="p-lg flex items-center gap-md">
                 <Button
                   variant="secondary"
-                  onClick={onClose}
                   fullWidth
+                  onClick={onClose}
                   disabled={loading}
                 >
-                  {cancelText}
+                  {cancelLabel}
                 </Button>
                 <Button
                   variant={styles.button}
-                  onClick={handleConfirm}
                   fullWidth
-                  loading={loading}
+                  onClick={handleConfirm}
+                  isLoading={loading}
                   disabled={loading}
                 >
-                  {confirmText}
+                  {confirmLabel}
                 </Button>
               </div>
             </motion.div>

@@ -58,6 +58,8 @@
     font-weight: 500;
   }
 
+  
+
   .btn-text {
     @apply px-md py-2 text-brand-primary hover:underline transition-all duration-200;
     font-weight: 500;

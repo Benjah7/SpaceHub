@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default';
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default' | 'secondary';
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -17,6 +17,7 @@ const badgeVariants: Record<BadgeVariant, string> = {
   error: 'badge-error',
   info: 'badge-info',
   default: 'bg-neutral-border text-neutral-text-primary',
+  secondary: 'badge-secondary',
 };
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -26,7 +27,7 @@ export const Badge: React.FC<BadgeProps> = ({
   children,
   ...props
 }) => {
-  const BadgeComponent = animated ? motion.span : 'span';
+  const BadgeComponent = (animated ? motion.span : 'span') as unknown as React.ElementType<any>;
 
   return (
     <BadgeComponent

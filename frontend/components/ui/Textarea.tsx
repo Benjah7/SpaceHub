@@ -1,91 +1,108 @@
 'use client';
 
-import React from 'react';
+import React, { forwardRef, TextareaHTMLAttributes } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps
+  extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
   label?: string;
   error?: string;
   helperText?: string;
-  showCharCount?: boolean;
+  fullWidth?: boolean;
+  resize?: 'none' | 'vertical' | 'horizontal' | 'both';
 }
 
-export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   (
     {
       label,
       error,
       helperText,
-      showCharCount = false,
+      fullWidth = false,
+      resize = 'vertical',
       className,
-      id,
-      maxLength,
-      value,
+      disabled,
+      required,
+      rows = 4,
       ...props
     },
     ref
   ) => {
-    const textareaId = id || label?.toLowerCase().replace(/\s+/g, '-');
-    const currentLength = value?.toString().length || 0;
+    const resizeClasses = {
+      none: 'resize-none',
+      vertical: 'resize-y',
+      horizontal: 'resize-x',
+      both: 'resize',
+    };
 
     return (
-      <div className="w-full">
+      <div className={cn('flex flex-col gap-1', fullWidth && 'w-full')}>
+        {/* Label */}
         {label && (
-          <label
-            htmlFor={textareaId}
-            className="block text-small font-medium text-neutral-text-primary mb-2"
-          >
+          <label className="text-small font-medium text-neutral-text-primary">
             {label}
-            {props.required && <span className="text-status-error ml-1">*</span>}
+            {required && <span className="text-status-error ml-1">*</span>}
           </label>
         )}
 
-        <textarea
-          ref={ref}
-          id={textareaId}
-          className={cn(
-            'input min-h-[100px] resize-y',
-            error && 'input-error',
-            className
-          )}
-          maxLength={maxLength}
-          value={value}
-          {...props}
-        />
+        {/* Textarea */}
+        <motion.div
+          className="relative"
+          initial={false}
+          animate={{ scale: error ? [1, 1.02, 1] : 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <textarea
+            ref={ref}
+            rows={rows}
+            disabled={disabled}
+            className={cn(
+              // Base styles
+              'w-full px-4 py-3 text-body',
+              'bg-neutral-surface border-2 rounded-lg',
+              'transition-all duration-200',
+              'placeholder:text-neutral-text-tertiary',
+              resizeClasses[resize],
 
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex-1">
-            {error && (
-              <motion.p
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-tiny text-status-error"
-              >
-                {error}
-              </motion.p>
+              // Focus states
+              'focus:outline-none focus:ring-4',
+
+              // Disabled state
+              disabled && 'opacity-50 cursor-not-allowed bg-neutral-bg',
+
+              // Error state
+              error
+                ? 'border-status-error focus:border-status-error focus:ring-status-error/20'
+                : 'border-neutral-border focus:border-brand-primary focus:ring-brand-primary/20',
+
+              className
             )}
+            {...props}
+          />
 
-            {helperText && !error && (
-              <p className="text-tiny text-neutral-text-secondary">
-                {helperText}
-              </p>
-            )}
-          </div>
-
-          {showCharCount && maxLength && (
-            <p
-              className={cn(
-                'text-tiny ml-2',
-                currentLength > maxLength * 0.9
-                  ? 'text-status-warning'
-                  : 'text-neutral-text-secondary'
-              )}
-            >
-              {currentLength}/{maxLength}
-            </p>
+          {/* Character count (if maxLength is provided) */}
+          {props.maxLength && props.value !== undefined && (
+            <div className="absolute bottom-2 right-2 text-tiny text-neutral-text-tertiary">
+              {String(props.value).length}/{props.maxLength}
+            </div>
           )}
-        </div>
+        </motion.div>
+
+        {/* Helper text or error */}
+        {(error || helperText) && (
+          <motion.p
+            className={cn(
+              'text-small',
+              error ? 'text-status-error' : 'text-neutral-text-secondary'
+            )}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {error || helperText}
+          </motion.p>
+        )}
       </div>
     );
   }

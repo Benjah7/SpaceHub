@@ -33,6 +33,10 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   return new Intl.DateTimeFormat('en-KE', options || defaultOptions).format(new Date(date));
 }
 
+export function formatNumber(num: number): string {
+  return new Intl.NumberFormat('en-KE').format(num);
+}
+
 /**
  * Format date to relative time (e.g., "2 days ago")
  */
