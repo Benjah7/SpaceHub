@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Edit, Camera, Save, X, MapPin, Calendar } from 'lucide-react';
+import { User, Mail, Phone, Edit, Camera, Save, X, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { useProfileUpdate, useProfileImageUpload } from '@/lib/hooks/useForm';
+import { useUpdateProfile, useProfileImageUpload } from '@/lib/hooks/useForm';
 import { formatDate } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -22,7 +22,7 @@ export default function ProfilePage() {
         bio: '',
     });
 
-    const { updateProfile, loading: updating } = useProfileUpdate();
+    const { updateProfile, loading: updating } = useUpdateProfile();
     const { uploadImage, uploading } = useProfileImageUpload();
 
     const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,7 +72,6 @@ export default function ProfilePage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-xl"
                 >
-                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-h1 mb-2">My Profile</h1>
@@ -91,7 +90,6 @@ export default function ProfilePage() {
                         )}
                     </div>
 
-                    {/* Profile Picture Card */}
                     <Card>
                         <div className="p-xl">
                             <div className="flex flex-col md:flex-row items-center gap-lg">
@@ -135,13 +133,12 @@ export default function ProfilePage() {
                                     <p className="text-body text-neutral-text-secondary mb-1">
                                         {user.email}
                                     </p>
-                                    <Badge variant="default">{user.role}</Badge>
+                                    <Badge variant="info">{user.role}</Badge>
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    {/* Profile Information */}
                     <Card>
                         <div className="p-lg border-b border-neutral-border">
                             <h3 className="text-h3">Profile Information</h3>
@@ -235,7 +232,6 @@ export default function ProfilePage() {
                         </div>
                     </Card>
 
-                    {/* Account Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
                         <Card>
                             <div className="p-lg text-center">
@@ -254,7 +250,7 @@ export default function ProfilePage() {
                         <Card>
                             <div className="p-lg text-center">
                                 <p className="text-small text-neutral-text-secondary mb-2">Joined</p>
-                                <p className="text-h3 font-bold">{formatDate(user.createdAt)}</p>
+                                <p className="text-h3 font-bold">{formatDate(user.createdAt, { month: 'short', year: 'numeric' })}</p>
                             </div>
                         </Card>
                     </div>

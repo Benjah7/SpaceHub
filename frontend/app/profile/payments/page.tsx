@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 const STATUS_CONFIG = {
     PENDING: { icon: Clock, variant: 'warning' as const, label: 'Pending' },
     PAID: { icon: CheckCircle, variant: 'success' as const, label: 'Paid' },
-    FAILED: { icon: XCircle, variant: 'danger' as const, label: 'Failed' },
+    FAILED: { icon: XCircle, variant: 'error' as const, label: 'Failed' },
     REFUNDED: { icon: CheckCircle, variant: 'secondary' as const, label: 'Refunded' },
 };
 
@@ -79,7 +79,7 @@ export default function PaymentsPage() {
 
                 {!payments || payments.length === 0 ? (
                     <EmptyState
-                        icon={<CreditCard className="w-12 h-12" />}
+                        icon={CreditCard}
                         title="No payments yet"
                         description="Your payment history will appear here"
                         actionLabel="Browse Properties"

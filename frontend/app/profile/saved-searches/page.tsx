@@ -71,7 +71,7 @@ export default function SavedSearchesPage() {
 
                 {!searches || searches.length === 0 ? (
                     <EmptyState
-                        icon={<Search className="w-12 h-12" />}
+                        icon={Search}
                         title="No saved searches"
                         description="Save your search criteria to quickly find properties later"
                         actionLabel="Search Properties"
@@ -125,7 +125,7 @@ export default function SavedSearchesPage() {
                                                 </div>
                                             )}
                                             {search.criteria.propertyType && (
-                                                <Badge variant="primary">{search.criteria.propertyType}</Badge>
+                                                <Badge variant="default">{search.criteria.propertyType}</Badge>
                                             )}
                                         </div>
 
@@ -146,11 +146,14 @@ export default function SavedSearchesPage() {
                 <ConfirmDialog
                     isOpen={!!deletingId}
                     onClose={() => setDeletingId(null)}
-                    onConfirm={() => deletingId && handleDelete(deletingId)}
+                    onConfirm={() => {
+                        if (!deletingId) return;
+                        return handleDelete(deletingId);
+                    }}
                     title="Delete Saved Search"
-                    message="Are you sure you want to delete this saved search?"
-                    confirmText="Delete"
-                    confirmVariant="danger"
+                    description="Are you sure you want to delete this saved search?"
+                    confirmLabel="Delete"
+                    variant="danger"
                     loading={deleting}
                 />
             </div>

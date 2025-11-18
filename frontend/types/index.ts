@@ -754,6 +754,7 @@ export interface Payment {
   amount: number;
   phoneNumber: string;
   mpesaReceiptNumber?: string;
+  transactionDate?: string
   status: 'PENDING' | 'PAID' | 'FAILED';
   propertyId: string;
   createdAt: string;
@@ -762,7 +763,7 @@ export interface Payment {
 export interface SavedSearch {
   id: string;
   name: string;
-  criteria: SearchFilters;
+  criteria: SearchCriteria;
   createdAt: string;
 }
 
