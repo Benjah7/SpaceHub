@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Trash2, Edit, Bell, MapPin, DollarSign } from 'lucide-react';
+import { Search, Trash2, MapPin, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';

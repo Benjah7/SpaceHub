@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart as HeartIcon, Trash2, MapPin, DollarSign, Square, ExternalLink } from 'lucide-react';
+import { Heart as HeartIcon, Trash2, MapPin, Square, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +13,6 @@ import { useFavorites } from '@/lib/hooks/useApi';
 import { formatCurrency } from '@/lib/utils';
 import { PROPERTY_TYPE_LABELS } from '@/types';
 import { useRouter } from 'next/navigation';
-import type { Property } from '@/types';
 
 const containerVariants = {
     hidden: { opacity: 0 },

@@ -3,7 +3,6 @@ import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
 import type {
   Property,
-  PaginatedResponse,
   Inquiry,
   Review,
   Notification,
@@ -712,44 +711,45 @@ export function usePropertyAnalytics(propertyId: string | null) {
 // ============================================
 
 /**
- * Hook to fetch user payments
+ * Hook for fetching user's payment history
  */
 export function useMyPayments() {
-  const [state, setState] = useState<UseDataState<Payment[]>>({
+  const [state, setState] = useState<{
+    data: Payment[] | null;
+    loading: boolean;
+    error: Error | null;
+  }>({
     data: null,
     loading: true,
     error: null,
   });
 
-  const fetchPayments = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+  useEffect(() => {
+    let mounted = true;
 
-    try {
-      const payments = await apiClient.getMyPayments();
-      setState({
-        data: payments,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error('Failed to fetch payments');
-      setState({
-        data: null,
-        loading: false,
-        error: err,
-      });
-      ErrorHandler.handle(error);
-    }
+    const fetchPayments = async () => {
+      try {
+        const payments = await apiClient.getMyPayments();
+        if (mounted) {
+          setState({ data: payments, loading: false, error: null });
+        }
+      } catch (error) {
+        if (mounted) {
+          const err = error instanceof Error ? error : new Error('Failed to fetch payments');
+          setState({ data: null, loading: false, error: err });
+          ErrorHandler.handle(error);
+        }
+      }
+    };
+
+    fetchPayments();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    fetchPayments();
-  }, [fetchPayments]);
-
-  return {
-    ...state,
-    refetch: fetchPayments,
-  };
+  return state;
 }
 
 // ============================================
@@ -882,3 +882,4 @@ export function useNeighborhoodInsights(neighborhood: string | null) {
     refetch: fetchInsights,
   };
 }
+

@@ -30,7 +30,15 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
     day: 'numeric',
   };
 
-  return new Intl.DateTimeFormat('en-KE', options || defaultOptions).format(new Date(date));
+  const dateObj = new Date(date);
+
+  // Check if the dateObj is a valid date
+  if (isNaN(dateObj.getTime())) {
+    // Handle invalid date: return a default string or throw an error
+    return 'Invalid Date'; // Or an empty string, or 'N/A'
+  }
+
+  return new Intl.DateTimeFormat('en-KE', options || defaultOptions).format(dateObj);
 }
 
 export function formatNumber(num: number): string {

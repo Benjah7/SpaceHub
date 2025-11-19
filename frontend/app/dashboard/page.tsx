@@ -11,10 +11,6 @@ import {
   TrendingUp,
   Plus,
   Edit,
-  MoreVertical,
-  Mail,
-  Phone,
-  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -23,11 +19,11 @@ import { DashboardStatsSkeleton, ListSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
-import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
+import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { PROPERTY_STATUS_LABELS } from '@/types';
-import type { Property, Inquiry, DashboardStats } from '@/types';
+import type { Property, Inquiry } from '@/types';
 
 const containerVariants = {
   hidden: { opacity: 0 },

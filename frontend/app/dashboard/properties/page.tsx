@@ -8,14 +8,11 @@ import {
     Building2,
     Plus,
     Search,
-    Filter,
     Eye,
     MessageSquare,
     Edit,
     Trash2,
-    MoreVertical,
     MapPin,
-    Calendar,
     DollarSign,
     Square,
 } from 'lucide-react';
@@ -34,10 +31,9 @@ import { ErrorHandler } from '@/lib/utils/error-handler';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
-import { PROPERTY_TYPE_LABELS, PROPERTY_STATUS_LABELS, PropertyStatus } from '@/types';
+import { PROPERTY_STATUS_LABELS, PropertyStatus } from '@/types';
 import type { Property } from '@/types';
 import toast from 'react-hot-toast';
-import { BackendPropertyStatus } from '@/types/backend';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -83,7 +79,7 @@ export default function DashboardPropertiesPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Fetch properties with filters
-    const { data, loading, error, total, totalPages, hasMore, refetch } = useProperties({
+    const { data, loading, total, totalPages, refetch } = useProperties({
         ownerId: user?.id,
         status: statusFilter || undefined,
         page: currentPage,
@@ -124,7 +120,7 @@ export default function DashboardPropertiesPage() {
         }
     };
 
-    const handleStatusChange = async (propertyId: string, newStatus: BackendPropertyStatus) => {
+    const handleStatusChange = async (propertyId: string, newStatus: PropertyStatus) => {
         try {
             await apiClient.updateProperty(propertyId, { status: newStatus });
             toast.success('Property status updated');
@@ -342,7 +338,7 @@ export default function DashboardPropertiesPage() {
                                                             onChange={(e) =>
                                                                 handleStatusChange(
                                                                     property.id,
-                                                                    e.target.value as BackendPropertyStatus
+                                                                    e.target.value as PropertyStatus
                                                                 )
                                                             }
                                                             className="w-full text-small py-2 px-3 border border-neutral-border rounded-lg bg-neutral-surface focus:outline-none focus:ring-2 focus:ring-brand-primary"

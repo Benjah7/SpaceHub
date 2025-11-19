@@ -35,7 +35,6 @@ import {
   PropertyType,
   PropertyStatus,
 } from '@/types';
-import type { Property } from '@/types';
 import toast from 'react-hot-toast';
 
 // Form validation schema

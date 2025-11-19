@@ -24,8 +24,6 @@ import type {
   BackendReview,
   BackendNotification,
   BackendPaginatedResponse,
-  BackendUserRole,
-  BackendInquiryStatus,
   BackendPaymentStatus,
 } from '@/types/backend';
 
@@ -41,7 +39,7 @@ export class PropertyTransformer {
       id: String(backend.id),
       title: backend.propertyName,
       description: backend.description,
-      propertyType: PropertyTransformer.mapPropertyType(backend.propertyType),
+      propertyType: PropertyTransformer.mapPropertyType(backend.propertyType as unknown as BackendPropertyType),
       status: PropertyTransformer.mapPropertyStatus(backend.status),
       price: Number(backend.monthlyRent),
       size: backend.squareFeet,

@@ -3,8 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { MapPin, Square, Eye, MessageSquare, Check, TrendingUp } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { MapPin, Eye, MessageSquare, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { Property, PropertyStatus } from '@/types';

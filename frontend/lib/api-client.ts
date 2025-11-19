@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type {
-  ApiResponse,
   ApiError,
   Property,
   PaginatedResponse,
@@ -8,7 +7,6 @@ import type {
   Inquiry,
   Review,
   Notification,
-  Favorite,
   SavedSearch,
   DashboardStats,
   PropertyAnalytics,

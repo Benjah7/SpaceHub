@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings as SettingsIcon, Lock, Bell, Globe, Trash2, Save } from 'lucide-react';
+import { Lock, Bell, Globe, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { logout } = useAuthStore();
     const { language, setLanguage } = useLanguageStore();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleting, setDeleting] = useState(false);

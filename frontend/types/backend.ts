@@ -3,6 +3,8 @@
  * These types represent the data structure as returned by the backend API
  */
 
+import { PropertyStatus, PropertyType } from ".";
+
 // Enums from backend
 export enum BackendUserRole {
   TENANT = 'TENANT',
@@ -83,7 +85,7 @@ export interface BackendProperty {
   bathrooms: number;
   description: string;
   amenities: string[];
-  propertyType: BackendPropertyType;
+  propertyType: PropertyType;
   status: BackendPropertyStatus;
   views: number;
   featured: boolean;
@@ -178,7 +180,7 @@ export interface BackendCreatePropertyDTO {
   bathrooms?: number;
   description: string;
   amenities: string[];
-  propertyType: BackendPropertyType;
+  propertyType: PropertyType;
 }
 
 export interface BackendUpdatePropertyDTO {
@@ -191,7 +193,7 @@ export interface BackendUpdatePropertyDTO {
   bathrooms?: number;
   description?: string;
   amenities?: string[];
-  status?: BackendPropertyStatus;
+  status?: PropertyStatus;
   featured?: boolean;
 }
 

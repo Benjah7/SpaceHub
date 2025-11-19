@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
     TrendingUp,
@@ -9,37 +8,38 @@ import {
     Eye,
     MessageSquare,
     Heart,
-    DollarSign,
     Building2,
-    Calendar,
-    BarChart3,
-    PieChart,
-    Activity,
+    Download,
 } from 'lucide-react';
+import {
+    LineChart,
+    Line,
+    BarChart,
+    Bar,
+    PieChart,
+    Pie,
+    Cell,
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+} from 'recharts';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useProperties } from '@/lib/hooks/useApi';
 import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
-import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
+import { formatNumber, formatPercentage } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
-import type { Property, PropertyAnalytics, DashboardStats } from '@/types';
-
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: { staggerChildren: 0.1 },
-    },
-};
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-};
+import type { Property, PropertyAnalytics, TimeSeriesData } from '@/types';
 
 const TIME_PERIODS = [
     { value: '7d', label: 'Last 7 Days' },
@@ -48,25 +48,32 @@ const TIME_PERIODS = [
     { value: 'all', label: 'All Time' },
 ];
 
+const CHART_COLORS = {
+    primary: '#E67E22',
+    secondary: '#3498DB',
+    success: '#27AE60',
+    warning: '#F39C12',
+    error: '#E74C3C',
+    info: '#9B59B6',
+};
+
 interface EnhancedProperty extends Property {
     analytics?: PropertyAnalytics;
 }
 
-export default function DashboardAnalyticsPage() {
-    const router = useRouter();
+export default function AnalyticsDashboard() {
     const { user } = useAuthStore();
-
     const [timePeriod, setTimePeriod] = useState('30d');
     const [loading, setLoading] = useState(true);
     const [properties, setProperties] = useState<EnhancedProperty[]>([]);
-    const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+    const [aggregatedData, setAggregatedData] = useState<{
+        viewsOverTime: TimeSeriesData[];
+        inquiriesOverTime: TimeSeriesData[];
+        propertyPerformance: any[];
+        statusDistribution: any[];
+    } | null>(null);
 
-    // Fetch properties
-    const {
-        data: propertiesData,
-        loading: propertiesLoading,
-        refetch,
-    } = useProperties({
+    const { data: propertiesData, loading: propertiesLoading } = useProperties({
         ownerId: user?.id,
         limit: 100,
     });
@@ -77,10 +84,6 @@ export default function DashboardAnalyticsPage() {
 
             setLoading(true);
             try {
-                // Fetch dashboard stats
-                const stats = await apiClient.getOwnerDashboard();
-                setDashboardStats(stats);
-
                 // Fetch analytics for each property
                 const propertiesWithAnalytics = await Promise.all(
                     propertiesData.map(async (property) => {
@@ -88,13 +91,16 @@ export default function DashboardAnalyticsPage() {
                             const analytics = await apiClient.getPropertyAnalytics(property.id);
                             return { ...property, analytics };
                         } catch (error) {
-                            console.error(`Failed to fetch analytics for property ${property.id}`);
                             return property;
                         }
                     })
                 );
 
                 setProperties(propertiesWithAnalytics);
+
+                // Aggregate data for charts
+                const aggregated = aggregateChartData(propertiesWithAnalytics);
+                setAggregatedData(aggregated);
             } catch (error) {
                 ErrorHandler.handle(error, 'Failed to load analytics');
             } finally {
@@ -107,16 +113,79 @@ export default function DashboardAnalyticsPage() {
         }
     }, [propertiesData]);
 
-    // Calculate aggregated metrics
-    const aggregatedMetrics = React.useMemo(() => {
+    const aggregateChartData = (props: EnhancedProperty[]) => {
+        // Aggregate views over time
+        const viewsMap = new Map<string, number>();
+        const inquiriesMap = new Map<string, number>();
+
+        props.forEach((prop) => {
+            if (prop.analytics?.viewsOverTime) {
+                prop.analytics.viewsOverTime.forEach((point) => {
+                    viewsMap.set(point.date, (viewsMap.get(point.date) || 0) + point.value);
+                });
+            }
+
+            if (prop.analytics?.inquiriesOverTime) {
+                prop.analytics.inquiriesOverTime.forEach((point) => {
+                    inquiriesMap.set(point.date, (inquiriesMap.get(point.date) || 0) + point.value);
+                });
+            }
+        });
+
+        const viewsOverTime = Array.from(viewsMap.entries())
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        const inquiriesOverTime = Array.from(inquiriesMap.entries())
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        // Property performance
+        const propertyPerformance = props
+            .map((prop) => ({
+                name: prop.title.slice(0, 20),
+                views: prop.analytics?.views || prop.views,
+                inquiries: prop.analytics?.inquiries || prop.inquiries,
+                favorites: prop.analytics?.favorites || 0,
+                conversionRate:
+                    prop?.views > 0
+                        ? ((prop.inquiries / prop.views) * 100).toFixed(1)
+                        : '0',
+            }))
+            .sort((a, b) => b.views - a.views)
+            .slice(0, 10);
+
+        // Status distribution
+        const statusCounts = props.reduce(
+            (acc, prop) => {
+                acc[prop.status] = (acc[prop.status] || 0) + 1;
+                return acc;
+            },
+            {} as Record<string, number>
+        );
+
+        const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
+            name: status,
+            value: count,
+        }));
+
+        return {
+            viewsOverTime,
+            inquiriesOverTime,
+            propertyPerformance,
+            statusDistribution,
+        };
+    };
+
+    const calculateMetrics = () => {
         if (!properties.length) {
             return {
                 totalViews: 0,
                 totalInquiries: 0,
                 totalFavorites: 0,
-                averageViews: 0,
-                conversionRate: 0,
-                topPerformer: null,
+                avgConversionRate: 0,
+                viewsChange: 0,
+                inquiriesChange: 0,
             };
         }
 
@@ -125,41 +194,26 @@ export default function DashboardAnalyticsPage() {
             (sum, p) => sum + (p.analytics?.inquiries || p.inquiries),
             0
         );
-        const totalFavorites = properties.reduce(
-            (sum, p) => sum + (p.analytics?.favorites || 0),
-            0
-        );
+        const totalFavorites = properties.reduce((sum, p) => sum + (p.analytics?.favorites || 0), 0);
 
-        const averageViews = totalViews / properties.length;
-        const conversionRate = totalViews > 0 ? (totalInquiries / totalViews) * 100 : 0;
+        const avgConversionRate =
+            totalViews > 0 ? (totalInquiries / totalViews) * 100 : 0;
 
-        // Find top performer by views
-        const topPerformer = properties.reduce((top, current) => {
-            const currentViews = current.analytics?.views || current.views;
-            const topViews = top ? top.analytics?.views || top.views : 0;
-            return currentViews > topViews ? current : top;
-        }, properties[0]);
+        // Calculate changes (mock for now - would need historical data)
+        const viewsChange = 12.5;
+        const inquiriesChange = 8.3;
 
         return {
             totalViews,
             totalInquiries,
             totalFavorites,
-            averageViews,
-            conversionRate,
-            topPerformer,
+            avgConversionRate,
+            viewsChange,
+            inquiriesChange,
         };
-    }, [properties]);
+    };
 
-    // Sort properties by performance
-    const topPerformingProperties = React.useMemo(() => {
-        return [...properties]
-            .sort((a, b) => {
-                const aViews = a.analytics?.views || a.views;
-                const bViews = b.analytics?.views || b.views;
-                return bViews - aViews;
-            })
-            .slice(0, 5);
-    }, [properties]);
+    const metrics = calculateMetrics();
 
     if (loading || propertiesLoading) {
         return (
@@ -176,7 +230,7 @@ export default function DashboardAnalyticsPage() {
             <div className="min-h-screen bg-neutral-bg py-xl">
                 <div className="container-custom">
                     <EmptyState
-                        icon={BarChart3}
+                        icon={Building2}
                         title="No Analytics Available"
                         description="Add properties to start tracking analytics and performance metrics"
                         actionLabel="Add Property"
@@ -197,309 +251,414 @@ export default function DashboardAnalyticsPage() {
                     animate={{ opacity: 1, y: 0 }}
                 >
                     <div>
-                        <h1 className="text-h1 mb-2">Analytics</h1>
+                        <h1 className="text-h1 mb-2">Analytics Dashboard</h1>
                         <p className="text-body text-neutral-text-secondary">
-                            Track your property performance and insights
+                            Comprehensive insights into your property performance
                         </p>
                     </div>
-                    <div className="w-48">
+                    <div className="flex items-center gap-md">
                         <Select
                             value={timePeriod}
                             onChange={(e) => setTimePeriod(e.target.value)}
                             options={TIME_PERIODS}
+                            className="w-48"
                         />
+                        <Button variant="outline" leftIcon={<Download className="w-5 h-5" />}>
+                            Export
+                        </Button>
                     </div>
                 </motion.div>
 
-                {/* Overview Stats */}
+                {/* Key Metrics Cards */}
                 <motion.div
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg mb-xl"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
                 >
-                    {/* Total Views */}
-                    <motion.div variants={itemVariants}>
-                        <Card>
-                            <div className="p-lg">
-                                <div className="flex items-start justify-between mb-md">
-                                    <div className="p-3 bg-status-info/10 rounded-lg">
-                                        <Eye className="w-6 h-6 text-status-info" />
-                                    </div>
-                                    <Badge variant="success" className="flex items-center gap-1">
-                                        <TrendingUp className="w-3 h-3" />
-                                        <span>12%</span>
-                                    </Badge>
+                    <Card>
+                        <div className="p-lg">
+                            <div className="flex items-start justify-between mb-md">
+                                <div className="p-3 bg-status-info/10 rounded-lg">
+                                    <Eye className="w-6 h-6 text-status-info" />
                                 </div>
-                                <p className="text-small text-neutral-text-secondary mb-1">Total Views</p>
-                                <p className="text-h1 font-bold">{formatNumber(aggregatedMetrics.totalViews)}</p>
-                                <p className="text-tiny text-neutral-text-tertiary mt-2">
-                                    Avg: {formatNumber(Math.round(aggregatedMetrics.averageViews))} per property
-                                </p>
+                                <Badge variant={metrics.viewsChange >= 0 ? 'success' : 'error'}>
+                                    {metrics.viewsChange >= 0 ? (
+                                        <TrendingUp className="w-3 h-3 mr-1" />
+                                    ) : (
+                                        <TrendingDown className="w-3 h-3 mr-1" />
+                                    )}
+                                    {Math.abs(metrics.viewsChange)}%
+                                </Badge>
                             </div>
-                        </Card>
-                    </motion.div>
+                            <p className="text-small text-neutral-text-secondary mb-1">Total Views</p>
+                            <p className="text-h1 font-bold">{formatNumber(metrics.totalViews)}</p>
+                        </div>
+                    </Card>
 
-                    {/* Total Inquiries */}
-                    <motion.div variants={itemVariants}>
-                        <Card>
-                            <div className="p-lg">
-                                <div className="flex items-start justify-between mb-md">
-                                    <div className="p-3 bg-brand-secondary/10 rounded-lg">
-                                        <MessageSquare className="w-6 h-6 text-brand-secondary" />
-                                    </div>
-                                    <Badge variant="success" className="flex items-center gap-1">
-                                        <TrendingUp className="w-3 h-3" />
-                                        <span>8%</span>
-                                    </Badge>
+                    <Card>
+                        <div className="p-lg">
+                            <div className="flex items-start justify-between mb-md">
+                                <div className="p-3 bg-brand-primary/10 rounded-lg">
+                                    <MessageSquare className="w-6 h-6 text-brand-primary" />
                                 </div>
-                                <p className="text-small text-neutral-text-secondary mb-1">Total Inquiries</p>
-                                <p className="text-h1 font-bold">
-                                    {formatNumber(aggregatedMetrics.totalInquiries)}
-                                </p>
-                                <p className="text-tiny text-neutral-text-tertiary mt-2">
-                                    {formatPercentage(aggregatedMetrics.conversionRate)} conversion rate
-                                </p>
+                                <Badge variant={metrics.inquiriesChange >= 0 ? 'success' : 'error'}>
+                                    {metrics.inquiriesChange >= 0 ? (
+                                        <TrendingUp className="w-3 h-3 mr-1" />
+                                    ) : (
+                                        <TrendingDown className="w-3 h-3 mr-1" />
+                                    )}
+                                    {Math.abs(metrics.inquiriesChange)}%
+                                </Badge>
                             </div>
-                        </Card>
-                    </motion.div>
+                            <p className="text-small text-neutral-text-secondary mb-1">Total Inquiries</p>
+                            <p className="text-h1 font-bold">{formatNumber(metrics.totalInquiries)}</p>
+                        </div>
+                    </Card>
 
-                    {/* Total Favorites */}
-                    <motion.div variants={itemVariants}>
-                        <Card>
-                            <div className="p-lg">
-                                <div className="flex items-start justify-between mb-md">
-                                    <div className="p-3 bg-status-error/10 rounded-lg">
-                                        <Heart className="w-6 h-6 text-status-error" />
-                                    </div>
-                                    <Badge variant="success" className="flex items-center gap-1">
-                                        <TrendingUp className="w-3 h-3" />
-                                        <span>15%</span>
-                                    </Badge>
+                    <Card>
+                        <div className="p-lg">
+                            <div className="flex items-start justify-between mb-md">
+                                <div className="p-3 bg-status-error/10 rounded-lg">
+                                    <Heart className="w-6 h-6 text-status-error" />
                                 </div>
-                                <p className="text-small text-neutral-text-secondary mb-1">Total Favorites</p>
-                                <p className="text-h1 font-bold">
-                                    {formatNumber(aggregatedMetrics.totalFavorites)}
-                                </p>
-                                <p className="text-tiny text-neutral-text-tertiary mt-2">
-                                    Saved by users
-                                </p>
                             </div>
-                        </Card>
-                    </motion.div>
+                            <p className="text-small text-neutral-text-secondary mb-1">Total Favorites</p>
+                            <p className="text-h1 font-bold">{formatNumber(metrics.totalFavorites)}</p>
+                        </div>
+                    </Card>
 
-                    {/* Revenue */}
-                    <motion.div variants={itemVariants}>
-                        <Card>
-                            <div className="p-lg">
-                                <div className="flex items-start justify-between mb-md">
-                                    <div className="p-3 bg-status-success/10 rounded-lg">
-                                        <DollarSign className="w-6 h-6 text-status-success" />
-                                    </div>
-                                    <Badge variant="default" className="flex items-center gap-1">
-                                        <Activity className="w-3 h-3" />
-                                        <span>--</span>
-                                    </Badge>
+                    <Card>
+                        <div className="p-lg">
+                            <div className="flex items-start justify-between mb-md">
+                                <div className="p-3 bg-status-success/10 rounded-lg">
+                                    <TrendingUp className="w-6 h-6 text-status-success" />
                                 </div>
-                                <p className="text-small text-neutral-text-secondary mb-1">Monthly Revenue</p>
-                                <p className="text-h1 font-bold">
-                                    {formatCurrency(dashboardStats?.monthlyRevenue || 0)}
-                                </p>
-                                <p className="text-tiny text-neutral-text-tertiary mt-2">
-                                    From {properties.filter((p) => p.status === 'RENTED').length} rented properties
-                                </p>
                             </div>
-                        </Card>
-                    </motion.div>
+                            <p className="text-small text-neutral-text-secondary mb-1">
+                                Conversion Rate
+                            </p>
+                            <p className="text-h1 font-bold">
+                                {formatPercentage(metrics.avgConversionRate)}
+                            </p>
+                        </div>
+                    </Card>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl">
-                    {/* Top Performing Properties */}
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-xl mb-xl">
+                    {/* Views Over Time */}
+                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                        <Card>
+                            <div className="p-lg border-b border-neutral-border">
+                                <h2 className="text-h2">Views Over Time</h2>
+                                <p className="text-small text-neutral-text-secondary mt-1">
+                                    Property views trend for the selected period
+                                </p>
+                            </div>
+                            <div className="p-lg">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <AreaChart data={aggregatedData?.viewsOverTime || []}>
+                                        <defs>
+                                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={CHART_COLORS.info} stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor={CHART_COLORS.info} stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                                        <XAxis
+                                            dataKey="date"
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) =>
+                                                new Date(value).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })
+                                            }
+                                        />
+                                        <YAxis tick={{ fontSize: 12 }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#fff',
+                                                border: '1px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                            }}
+                                            labelFormatter={(value) =>
+                                                new Date(value).toLocaleDateString('en-US', {
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                })
+                                            }
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="value"
+                                            stroke={CHART_COLORS.info}
+                                            strokeWidth={2}
+                                            fill="url(#colorViews)"
+                                            name="Views"
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </motion.div>
+
+                    {/* Inquiries Over Time */}
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+                        <Card>
+                            <div className="p-lg border-b border-neutral-border">
+                                <h2 className="text-h2">Inquiries Over Time</h2>
+                                <p className="text-small text-neutral-text-secondary mt-1">
+                                    Inquiry trend for the selected period
+                                </p>
+                            </div>
+                            <div className="p-lg">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={aggregatedData?.inquiriesOverTime || []}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                                        <XAxis
+                                            dataKey="date"
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) =>
+                                                new Date(value).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                })
+                                            }
+                                        />
+                                        <YAxis tick={{ fontSize: 12 }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#fff',
+                                                border: '1px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                            }}
+                                            labelFormatter={(value) =>
+                                                new Date(value).toLocaleDateString('en-US', {
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                })
+                                            }
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="value"
+                                            stroke={CHART_COLORS.primary}
+                                            strokeWidth={3}
+                                            dot={{ fill: CHART_COLORS.primary, r: 4 }}
+                                            name="Inquiries"
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </motion.div>
+                </div>
+
+                {/* Property Performance & Status Distribution */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl mb-xl">
+                    {/* Property Performance Bar Chart */}
                     <motion.div
                         className="lg:col-span-2"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
                     >
                         <Card>
                             <div className="p-lg border-b border-neutral-border">
                                 <h2 className="text-h2">Top Performing Properties</h2>
+                                <p className="text-small text-neutral-text-secondary mt-1">
+                                    Views and inquiries by property
+                                </p>
                             </div>
                             <div className="p-lg">
-                                <div className="space-y-md">
-                                    {topPerformingProperties.map((property, index) => {
-                                        const views = property.analytics?.views || property.views;
-                                        const inquiries = property.analytics?.inquiries || property.inquiries;
-                                        const conversionRate = views > 0 ? (inquiries / views) * 100 : 0;
-
-                                        return (
-                                            <div
-                                                key={property.id}
-                                                className="p-md bg-neutral-bg rounded-lg hover:bg-neutral-border/30 transition-colors cursor-pointer"
-                                                onClick={() => router.push(`/properties/${property.id}`)}
-                                            >
-                                                <div className="flex items-start gap-md">
-                                                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-primary/10 text-brand-primary font-bold flex-shrink-0">
-                                                        {index + 1}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h3 className="text-h3 mb-2 line-clamp-1">{property.title}</h3>
-                                                        <div className="grid grid-cols-3 gap-4 text-small">
-                                                            <div>
-                                                                <p className="text-neutral-text-tertiary mb-1">Views</p>
-                                                                <p className="font-semibold">{formatNumber(views)}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-neutral-text-tertiary mb-1">Inquiries</p>
-                                                                <p className="font-semibold">{formatNumber(inquiries)}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-neutral-text-tertiary mb-1">Conversion</p>
-                                                                <p className="font-semibold">{formatPercentage(conversionRate)}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Badge
-                                                        variant={property.status === 'AVAILABLE' ? 'success' : 'default'}
-                                                    >
-                                                        {property.status}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                <ResponsiveContainer width="100%" height={400}>
+                                    <BarChart data={aggregatedData?.propertyPerformance || []}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                                        <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={100} />
+                                        <YAxis tick={{ fontSize: 12 }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#fff',
+                                                border: '1px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                            }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="views" fill={CHART_COLORS.info} name="Views" radius={[8, 8, 0, 0]} />
+                                        <Bar
+                                            dataKey="inquiries"
+                                            fill={CHART_COLORS.primary}
+                                            name="Inquiries"
+                                            radius={[8, 8, 0, 0]}
+                                        />
+                                        <Bar
+                                            dataKey="favorites"
+                                            fill={CHART_COLORS.error}
+                                            name="Favorites"
+                                            radius={[8, 8, 0, 0]}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </Card>
                     </motion.div>
 
-                    {/* Quick Insights */}
-                    <motion.div
-                        className="space-y-lg"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                    >
-                        {/* Top Performer */}
-                        {aggregatedMetrics.topPerformer && (
-                            <Card>
-                                <div className="p-lg border-b border-neutral-border">
-                                    <h3 className="text-h3">Top Performer</h3>
-                                </div>
-                                <div className="p-lg">
-                                    <div className="flex items-center gap-2 mb-md">
-                                        <div className="p-2 bg-brand-primary/10 rounded-lg">
-                                            <TrendingUp className="w-5 h-5 text-brand-primary" />
-                                        </div>
-                                        <Badge variant="success">Best</Badge>
-                                    </div>
-                                    <h4 className="text-body font-semibold mb-2 line-clamp-2">
-                                        {aggregatedMetrics.topPerformer.title}
-                                    </h4>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-small">
-                                            <span className="text-neutral-text-secondary">Views</span>
-                                            <span className="font-semibold">
-                                                {formatNumber(
-                                                    aggregatedMetrics.topPerformer.analytics?.views ||
-                                                    aggregatedMetrics.topPerformer.views
-                                                )}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-small">
-                                            <span className="text-neutral-text-secondary">Inquiries</span>
-                                            <span className="font-semibold">
-                                                {formatNumber(
-                                                    aggregatedMetrics.topPerformer.analytics?.inquiries ||
-                                                    aggregatedMetrics.topPerformer.inquiries
-                                                )}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Property Status Distribution */}
+                    {/* Status Distribution Pie Chart */}
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <Card>
                             <div className="p-lg border-b border-neutral-border">
-                                <h3 className="text-h3">Property Status</h3>
+                                <h2 className="text-h2">Property Status</h2>
+                                <p className="text-small text-neutral-text-secondary mt-1">
+                                    Distribution by status
+                                </p>
                             </div>
-                            <div className="p-lg space-y-md">
-                                {[
-                                    {
-                                        status: 'AVAILABLE',
-                                        label: 'Available',
-                                        color: 'bg-status-success',
-                                        count: properties.filter((p) => p.status === 'AVAILABLE').length,
-                                    },
-                                    {
-                                        status: 'RENTED',
-                                        label: 'Rented',
-                                        color: 'bg-status-error',
-                                        count: properties.filter((p) => p.status === 'RENTED').length,
-                                    },
-                                    {
-                                        status: 'PENDING',
-                                        label: 'Pending',
-                                        color: 'bg-status-warning',
-                                        count: properties.filter((p) => p.status === 'PENDING').length,
-                                    },
-                                    {
-                                        status: 'INACTIVE',
-                                        label: 'Inactive',
-                                        color: 'bg-neutral-text-tertiary',
-                                        count: properties.filter((p) => p.status === 'INACTIVE').length,
-                                    },
-                                ].map(({ status, label, color, count }) => {
-                                    const percentage = (count / properties.length) * 100;
-                                    return (
-                                        <div key={status}>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-small text-neutral-text-secondary">{label}</span>
-                                                <span className="text-small font-semibold">
-                                                    {count} ({formatPercentage(percentage)})
-                                                </span>
-                                            </div>
-                                            <div className="w-full h-2 bg-neutral-border rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full ${color} transition-all duration-300`}
-                                                    style={{ width: `${percentage}%` }}
+                            <div className="p-lg">
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={aggregatedData?.statusDistribution || []}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, percent }) =>
+                                                `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                                            }
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                        >
+                                            {aggregatedData?.statusDistribution.map((entry, index) => (
+                                                <Cell
+                                                    key={`cell-${index}`}
+                                                    fill={
+                                                        entry.name === 'AVAILABLE'
+                                                            ? CHART_COLORS.success
+                                                            : entry.name === 'RENTED'
+                                                                ? CHART_COLORS.primary
+                                                                : entry.name === 'PENDING'
+                                                                    ? CHART_COLORS.warning
+                                                                    : CHART_COLORS.error
+                                                    }
                                                 />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </Card>
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
 
-                        {/* Performance Tips */}
-                        <Card>
-                            <div className="p-lg border-b border-neutral-border">
-                                <h3 className="text-h3">Performance Tips</h3>
-                            </div>
-                            <div className="p-lg space-y-md text-small">
-                                <div className="flex gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-2 flex-shrink-0" />
-                                    <p className="text-neutral-text-secondary">
-                                        Properties with more photos get 3x more views
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-2 flex-shrink-0" />
-                                    <p className="text-neutral-text-secondary">
-                                        Respond to inquiries within 24 hours to improve conversion
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-2 flex-shrink-0" />
-                                    <p className="text-neutral-text-secondary">
-                                        Featured listings get 5x more visibility
-                                    </p>
+                                {/* Legend */}
+                                <div className="mt-md space-y-2">
+                                    {aggregatedData?.statusDistribution.map((entry) => (
+                                        <div key={entry.name} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{
+                                                        backgroundColor:
+                                                            entry.name === 'AVAILABLE'
+                                                                ? CHART_COLORS.success
+                                                                : entry.name === 'RENTED'
+                                                                    ? CHART_COLORS.primary
+                                                                    : entry.name === 'PENDING'
+                                                                        ? CHART_COLORS.warning
+                                                                        : CHART_COLORS.error,
+                                                    }}
+                                                />
+                                                <span className="text-small">{entry.name}</span>
+                                            </div>
+                                            <span className="text-small font-semibold">{entry.value}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </Card>
                     </motion.div>
                 </div>
+
+                {/* Property Performance Table */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                    <Card>
+                        <div className="p-lg border-b border-neutral-border">
+                            <h2 className="text-h2">Property Performance Details</h2>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-neutral-surface">
+                                    <tr>
+                                        <th className="px-lg py-md text-left text-small font-semibold">Property</th>
+                                        <th className="px-lg py-md text-right text-small font-semibold">Views</th>
+                                        <th className="px-lg py-md text-right text-small font-semibold">
+                                            Inquiries
+                                        </th>
+                                        <th className="px-lg py-md text-right text-small font-semibold">
+                                            Favorites
+                                        </th>
+                                        <th className="px-lg py-md text-right text-small font-semibold">
+                                            Conversion
+                                        </th>
+                                        <th className="px-lg py-md text-center text-small font-semibold">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {properties.map((property) => {
+                                        const views = property.analytics?.views || property.views;
+                                        const inquiries = property.analytics?.inquiries || property.inquiries;
+                                        const favorites = property.analytics?.favorites || 0;
+                                        const conversion = views > 0 ? ((inquiries / views) * 100).toFixed(1) : '0';
+
+                                        return (
+                                            <tr key={property.id} className="border-t border-neutral-border hover:bg-neutral-surface/50">
+                                                <td className="px-lg py-md">
+                                                    <p className="font-semibold">{property.title}</p>
+                                                    <p className="text-small text-neutral-text-secondary">
+                                                        {property.location.neighborhood}
+                                                    </p>
+                                                </td>
+                                                <td className="px-lg py-md text-right font-mono">{formatNumber(views)}</td>
+                                                <td className="px-lg py-md text-right font-mono">
+                                                    {formatNumber(inquiries)}
+                                                </td>
+                                                <td className="px-lg py-md text-right font-mono">
+                                                    {formatNumber(favorites)}
+                                                </td>
+                                                <td className="px-lg py-md text-right">
+                                                    <Badge
+                                                        variant={
+                                                            parseFloat(conversion) >= 5
+                                                                ? 'success'
+                                                                : parseFloat(conversion) >= 2
+                                                                    ? 'warning'
+                                                                    : 'error'
+                                                        }
+                                                    >
+                                                        {conversion}%
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-lg py-md text-center">
+                                                    <Badge
+                                                        variant={
+                                                            property.status === 'AVAILABLE'
+                                                                ? 'success'
+                                                                : property.status === 'RENTED'
+                                                                    ? 'info'
+                                                                    : 'warning'
+                                                        }
+                                                    >
+                                                        {property.status}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                </motion.div>
             </div>
         </div>
     );
 }
+

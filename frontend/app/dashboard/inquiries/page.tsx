@@ -6,11 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     MessageSquare,
     Search,
-    Filter,
     Mail,
     Phone,
     Calendar,
-    MapPin,
     Building2,
     Send,
     CheckCircle,
@@ -56,7 +54,7 @@ const STATUS_FILTERS = [
 
 export default function DashboardInquiriesPage() {
     const router = useRouter();
-    const { t } = useLanguageStore();
+    useLanguageStore();
 
     // State
     const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +65,7 @@ export default function DashboardInquiriesPage() {
     const [isResponding, setIsResponding] = useState(false);
 
     // Fetch inquiries
-    const { data: inquiries, loading, error, refetch } = useReceivedInquiries();
+    const { data: inquiries, loading, refetch } = useReceivedInquiries();
 
     // Filter inquiries
     const filteredInquiries = React.useMemo(() => {

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, CheckCircle, XCircle, Clock, Building2, Calendar, Download } from 'lucide-react';
+import { CreditCard, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
