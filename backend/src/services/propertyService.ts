@@ -1,10 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../utils/apiResponse';
 import { CreatePropertyDTO, UpdatePropertyDTO } from '../types';
 import { RedisService } from './redisService';
 import { CACHE_KEYS } from '../utils/constants';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export class PropertyService {
     /**

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
 import { ApiError, ApiResponse } from '../utils/apiResponse';
+import { Prisma } from '../../generated/prisma/client';
 
 /**
  * Global error handling middleware

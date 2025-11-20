@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { verifyToken, TokenPayload } from '../utils/jwt';
 import { ApiResponse } from '../utils/apiResponse';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 /**
  * Authentication middleware

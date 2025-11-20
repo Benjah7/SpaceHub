@@ -1,8 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../utils/apiResponse';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // Configure Cloudinary
 cloudinary.config({

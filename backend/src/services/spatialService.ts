@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { SearchCriteria } from '../types';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export class SpatialService {
   /**

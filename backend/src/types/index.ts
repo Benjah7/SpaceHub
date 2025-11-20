@@ -1,4 +1,5 @@
-import { UserRole, PropertyType, PropertyStatus } from '@prisma/client';
+import { UserRole, PropertyType, PropertyStatus } from "../../generated/prisma/enums";
+
 
 export interface RegisterDTO {
     email: string;

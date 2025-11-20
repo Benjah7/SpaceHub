@@ -1,8 +1,6 @@
 import axios from 'axios';
-import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../utils/apiResponse';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export class MpesaService {
     /**
