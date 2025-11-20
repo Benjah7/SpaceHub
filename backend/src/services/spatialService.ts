@@ -3,6 +3,30 @@ import { prisma } from '../utils/prisma';
 
 export class SpatialService {
   /**
+   * Calculate distance between two points using Haversine formula
+   * Returns distance in meters
+   */
+  private static haversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371000; // Earth's radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+  /**
    * Search properties within radius
    */
   static async searchByRadius(
@@ -14,102 +38,76 @@ export class SpatialService {
     const radiusMeters = radiusKm * 1000;
 
     // Build WHERE conditions
-    const conditions: string[] = ['p.status = \'AVAILABLE\''];
-    const params: any[] = [longitude, latitude, radiusMeters];
-    let paramIndex = 4;
+    const whereClause: any = {
+      status: 'AVAILABLE',
+    };
 
     if (filters.propertyType) {
-      conditions.push(`p."propertyType" = $${paramIndex}::"PropertyType"`);
-      params.push(filters.propertyType);
-      paramIndex++;
+      whereClause.propertyType = filters.propertyType;
     }
 
-    if (filters.minRent) {
-      conditions.push(`p."monthlyRent" >= $${paramIndex}`);
-      params.push(filters.minRent);
-      paramIndex++;
+    if (filters.minRent !== undefined) {
+      whereClause.monthlyRent = { ...whereClause.monthlyRent, gte: filters.minRent };
     }
 
-    if (filters.maxRent) {
-      conditions.push(`p."monthlyRent" <= $${paramIndex}`);
-      params.push(filters.maxRent);
-      paramIndex++;
+    if (filters.maxRent !== undefined) {
+      whereClause.monthlyRent = { ...whereClause.monthlyRent, lte: filters.maxRent };
     }
 
     if (filters.neighborhood) {
-      conditions.push(`p.neighborhood = $${paramIndex}`);
-      params.push(filters.neighborhood);
-      paramIndex++;
+      whereClause.neighborhood = filters.neighborhood;
     }
 
-    const whereClause = conditions.join(' AND ');
+    // Get all matching properties
+    const allProperties = await prisma.property.findMany({
+      where: whereClause,
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            verificationStatus: true,
+          },
+        },
+        images: {
+          orderBy: { isPrimary: 'desc' },
+        },
+      },
+    });
 
-    // Execute spatial query
-    const properties = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT 
-        p.*,
-        ST_Distance(
-          p.location,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-        ) as distance,
-        (
-          SELECT json_build_object(
-            'id', u.id,
-            'name', u.name,
-            'verificationStatus', u."verificationStatus"
-          )
-          FROM users u
-          WHERE u.id = p."ownerId"
-        ) as owner,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'id', pi.id,
-              'url', pi.url,
-              'isPrimary', pi."isPrimary"
-            ) ORDER BY pi."isPrimary" DESC
-          )
-          FROM property_images pi
-          WHERE pi."propertyId" = p.id
-        ) as images
-      FROM properties p
-      WHERE ${whereClause}
-        AND ST_DWithin(
-          p.location,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-          $3
-        )
-      ORDER BY distance ASC
-      LIMIT ${filters.limit || 20}
-      OFFSET ${((filters.page || 1) - 1) * (filters.limit || 20)}
-    `, ...params);
+    // Calculate distances and filter
+    const propertiesWithDistance = allProperties
+      .map((p) => {
+        const distance = this.haversineDistance(
+          latitude,
+          longitude,
+          p.latitude,
+          p.longitude
+        );
+        return {
+          ...p,
+          distance: Math.round(distance),
+        };
+      })
+      .filter((p) => p.distance <= radiusMeters)
+      .sort((a, b) => a.distance - b.distance);
 
-    // Get total count
-    const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(`
-      SELECT COUNT(*) as count
-      FROM properties p
-      WHERE ${whereClause}
-        AND ST_DWithin(
-          p.location,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-          $3
-        )
-    `, ...params);
+    // Paginate
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
 
-    const total = Number(countResult[0].count);
+    const paginatedProperties = propertiesWithDistance.slice(startIndex, endIndex);
 
     return {
-      properties: properties.map(p => ({
-        ...p,
-        distance: Math.round(p.distance), // meters
-        images: p.images || []
-      })),
+      properties: paginatedProperties,
       pagination: {
-        page: filters.page || 1,
-        limit: filters.limit || 20,
-        total,
-        totalPages: Math.ceil(total / (filters.limit || 20))
-      }
+        page,
+        limit,
+        total: propertiesWithDistance.length,
+        totalPages: Math.ceil(propertiesWithDistance.length / limit),
+      },
     };
   }
 
@@ -123,53 +121,74 @@ export class SpatialService {
     maxLng: number,
     filters: SearchCriteria = {}
   ) {
-    const properties = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT 
-        p.*,
-        (
-          SELECT json_build_object(
-            'id', u.id,
-            'name', u.name
-          )
-          FROM users u
-          WHERE u.id = p."ownerId"
-        ) as owner,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'id', pi.id,
-              'url', pi.url,
-              'isPrimary', pi."isPrimary"
-            )
-          )
-          FROM property_images pi
-          WHERE pi."propertyId" = p.id
-        ) as images
-      FROM properties p
-      WHERE p.status = 'AVAILABLE'
-        AND p.latitude BETWEEN $1 AND $2
-        AND p.longitude BETWEEN $3 AND $4
-      ${filters.propertyType ? `AND p."propertyType" = '${filters.propertyType}'::"PropertyType"` : ''}
-      ${filters.minRent ? `AND p."monthlyRent" >= ${filters.minRent}` : ''}
-      ${filters.maxRent ? `AND p."monthlyRent" <= ${filters.maxRent}` : ''}
-      ORDER BY p."createdAt" DESC
-      LIMIT ${filters.limit || 20}
-      OFFSET ${((filters.page || 1) - 1) * (filters.limit || 20)}
-    `, minLat, maxLat, minLng, maxLng);
+    const whereClause: any = {
+      status: 'AVAILABLE',
+      latitude: {
+        gte: minLat,
+        lte: maxLat,
+      },
+      longitude: {
+        gte: minLng,
+        lte: maxLng,
+      },
+    };
 
-    return properties.map(p => ({
-      ...p,
-      images: p.images || []
-    }));
+    if (filters.propertyType) {
+      whereClause.propertyType = filters.propertyType;
+    }
+
+    if (filters.minRent !== undefined) {
+      whereClause.monthlyRent = { ...whereClause.monthlyRent, gte: filters.minRent };
+    }
+
+    if (filters.maxRent !== undefined) {
+      whereClause.monthlyRent = { ...whereClause.monthlyRent, lte: filters.maxRent };
+    }
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+
+    const [properties, total] = await Promise.all([
+      prisma.property.findMany({
+        where: whereClause,
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          images: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.property.count({ where: whereClause }),
+    ]);
+
+    return {
+      properties,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   /**
    * Get nearby properties
    */
-  static async getNearbyProperties(propertyId: number, radiusKm: number = 5, limit: number = 10) {
+  static async getNearbyProperties(
+    propertyId: number,
+    radiusKm: number = 5,
+    limit: number = 10
+  ) {
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
-      select: { longitude: true, latitude: true }
+      select: { longitude: true, latitude: true },
     });
 
     if (!property) {
@@ -179,17 +198,14 @@ export class SpatialService {
           page: 1,
           limit: limit,
           total: 0,
-          totalPages: 0
-        }
+          totalPages: 0,
+        },
       };
     }
 
-    return this.searchByRadius(
-      property.latitude,
-      property.longitude,
-      radiusKm,
-      { limit }
-    );
+    return this.searchByRadius(property.latitude, property.longitude, radiusKm, {
+      limit,
+    });
   }
 
   /**
@@ -201,13 +217,6 @@ export class SpatialService {
     lat2: number,
     lng2: number
   ): Promise<number> {
-    const result = await prisma.$queryRaw<[{ distance: number }]>`
-      SELECT ST_Distance(
-        ST_SetSRID(ST_MakePoint(${lng1}, ${lat1}), 4326)::geography,
-        ST_SetSRID(ST_MakePoint(${lng2}, ${lat2}), 4326)::geography
-      ) as distance
-    `;
-
-    return Math.round(result[0].distance); // meters
+    return Math.round(this.haversineDistance(lat1, lng1, lat2, lng2));
   }
 }

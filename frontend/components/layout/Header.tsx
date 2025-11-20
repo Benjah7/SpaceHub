@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, MessageSquare, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
+import { useUnreadMessageCount, useUpcomingAppointmentsCount } from '@/lib/hooks/useApi';
 import { cn } from '@/lib/utils';
 
 export const Header: React.FC = () => {
@@ -16,12 +17,20 @@ export const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated, user } = useAuthStore();
   const { language, setLanguage, t } = useLanguageStore();
+  const { count: unreadMessages } = useUnreadMessageCount();
+  const { count: upcomingAppointments } = useUpcomingAppointmentsCount();
 
   const navigation = [
     { name: t('nav.home'), href: '/' },
     { name: t('nav.listings'), href: '/listings' },
-    ...(isAuthenticated && user?.role === 'OWNER' 
-      ? [{ name: t('nav.dashboard'), href: '/dashboard' }] 
+    ...(isAuthenticated
+      ? [
+        { name: 'Messages', href: '/messages', badge: unreadMessages },
+        { name: 'Appointments', href: '/appointments', badge: upcomingAppointments },
+      ]
+      : []),
+    ...(isAuthenticated && user?.role === 'OWNER'
+      ? [{ name: t('nav.dashboard'), href: '/dashboard' }]
       : []
     ),
   ];
@@ -50,13 +59,18 @@ export const Header: React.FC = () => {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'text-body font-medium transition-colors hover:text-brand-primary',
+                  'text-body font-medium transition-colors hover:text-brand-primary inline-flex items-center gap-2',
                   pathname === item.href
                     ? 'text-brand-primary'
                     : 'text-neutral-text-secondary'
                 )}
               >
                 {item.name}
+                {item.badge && item.badge > 0 && (
+                  <span className="bg-brand-accent text-white text-tiny px-1.5 py-0.5 rounded-full font-semibold">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             ))}
           </div>
@@ -105,14 +119,21 @@ export const Header: React.FC = () => {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'block px-md py-2 text-body font-medium rounded-sm transition-colors',
+                      'block px-md py-2 text-body font-medium rounded-sm transition-colors relative',
                       pathname === item.href
                         ? 'bg-brand-primary bg-opacity-10 text-brand-primary'
                         : 'text-neutral-text-secondary hover:bg-neutral-bg'
                     )}
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    {item.name}
+                    <span className="flex items-center justify-between">
+                      {item.name}
+                      {item.badge && item.badge > 0 && (
+                        <span className="bg-brand-accent text-white text-tiny px-1.5 py-0.5 rounded-full font-semibold">
+                          {item.badge}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 ))}
 

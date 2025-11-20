@@ -101,7 +101,7 @@ export const createConversation = asyncHandler(async (req: Request, res: Respons
         }
     });
 
-    res.status(201).json(
+    return res.status(201).json(
         ApiResponse.success(conversation, 'Conversation created')
     );
 });

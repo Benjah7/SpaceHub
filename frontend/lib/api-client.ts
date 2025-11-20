@@ -1066,13 +1066,10 @@ class ApiClient {
     await this.delete(`/documents/${documentId}`);
   }
 
-   // ============================================
+// ============================================
   // MESSAGING ENDPOINTS
   // ============================================
 
-  /**
-   * Create or get conversation
-   */
   async createConversation(data: {
     participantId: string;
     propertyId?: string;
@@ -1088,28 +1085,19 @@ class ApiClient {
     if (response.success && response.data) {
       return ConversationTransformer.toFrontend(response.data);
     }
-
     throw new Error('Failed to create conversation');
   }
 
-  /**
-   * Get user conversations
-   */
   async getConversations(): Promise<Conversation[]> {
     const response = await this.get<BackendApiResponse<BackendConversation[]>>(
       '/messages/conversations'
     );
-
     if (response.success && response.data) {
       return response.data.map(ConversationTransformer.toFrontend);
     }
-
     return [];
   }
 
-  /**
-   * Get conversation messages
-   */
   async getMessages(
     conversationId: string,
     params?: { page?: number; limit?: number }
@@ -1118,12 +1106,7 @@ class ApiClient {
       success: boolean;
       data: {
         data: BackendMessage[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-        };
+        pagination: { page: number; limit: number; total: number; totalPages: number };
       };
     }>(`/messages/conversations/${conversationId}/messages`, { params });
 
@@ -1133,41 +1116,28 @@ class ApiClient {
         pagination: response.data.pagination,
       };
     }
-
     throw new Error('Failed to fetch messages');
   }
 
-  /**
-   * Send message
-   */
   async sendMessage(conversationId: string, content: string): Promise<Message> {
     const response = await this.post<BackendApiResponse<BackendMessage>>(
       `/messages/conversations/${conversationId}/messages`,
       { content }
     );
-
     if (response.success && response.data) {
       return MessageTransformer.toFrontend(response.data);
     }
-
     throw new Error('Failed to send message');
   }
 
-  /**
-   * Mark messages as read
-   */
   async markMessagesAsRead(conversationId: string): Promise<void> {
     await this.put(`/messages/conversations/${conversationId}/read`);
   }
 
-  /**
-   * Get unread message count
-   */
   async getUnreadMessageCount(): Promise<number> {
     const response = await this.get<BackendApiResponse<{ count: number }>>(
       '/messages/unread/count'
     );
-
     return response.success && response.data ? response.data.count : 0;
   }
 
@@ -1175,9 +1145,6 @@ class ApiClient {
   // APPOINTMENT ENDPOINTS
   // ============================================
 
-  /**
-   * Create appointment
-   */
   async createAppointment(data: {
     propertyId: string;
     scheduledDate: string;
@@ -1191,17 +1158,12 @@ class ApiClient {
         notes: data.notes,
       }
     );
-
     if (response.success && response.data) {
       return AppointmentTransformer.toFrontend(response.data);
     }
-
     throw new Error('Failed to create appointment');
   }
 
-  /**
-   * Get appointments
-   */
   async getAppointments(params?: {
     status?: AppointmentStatus;
     role?: 'tenant' | 'owner';
@@ -1210,32 +1172,22 @@ class ApiClient {
       '/appointments',
       { params }
     );
-
     if (response.success && response.data) {
       return response.data.map(AppointmentTransformer.toFrontend);
     }
-
     return [];
   }
 
-  /**
-   * Get appointment by ID
-   */
   async getAppointment(id: string): Promise<Appointment> {
     const response = await this.get<BackendApiResponse<BackendAppointment>>(
       `/appointments/${id}`
     );
-
     if (response.success && response.data) {
       return AppointmentTransformer.toFrontend(response.data);
     }
-
     throw new Error('Appointment not found');
   }
 
-  /**
-   * Update appointment status
-   */
   async updateAppointmentStatus(
     id: string,
     status: AppointmentStatus,
@@ -1245,49 +1197,20 @@ class ApiClient {
       `/appointments/${id}/status`,
       { status, cancellationReason }
     );
-
     if (response.success && response.data) {
       return AppointmentTransformer.toFrontend(response.data);
     }
-
     throw new Error('Failed to update appointment');
   }
 
-  /**
-   * Reschedule appointment
-   */
-  async rescheduleAppointment(
-    id: string,
-    scheduledDate: string,
-    notes?: string
-  ): Promise<Appointment> {
-    const response = await this.put<BackendApiResponse<BackendAppointment>>(
-      `/appointments/${id}/reschedule`,
-      { scheduledDate, notes }
-    );
-
-    if (response.success && response.data) {
-      return AppointmentTransformer.toFrontend(response.data);
-    }
-
-    throw new Error('Failed to reschedule appointment');
-  }
-
-  /**
-   * Delete appointment
-   */
   async deleteAppointment(id: string): Promise<void> {
     await this.delete(`/appointments/${id}`);
   }
 
-  /**
-   * Get upcoming appointments count
-   */
   async getUpcomingAppointmentsCount(): Promise<number> {
     const response = await this.get<BackendApiResponse<{ count: number }>>(
       '/appointments/upcoming/count'
     );
-
     return response.success && response.data ? response.data.count : 0;
   }
 }

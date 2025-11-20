@@ -19,6 +19,8 @@ import savedSearchRoutes from './routes/savedSearchRoutes';
 import neighborhoodRoutes from './routes/neighborhoodRoutes';
 import documentRoutes from './routes/documentRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import messageRoutes from './routes/messageRoutes';
+import appointmentRoutes from './routes/appointmentRoutes';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -75,6 +77,8 @@ app.use('/api/saved-searches', savedSearchRoutes);
 app.use('/api/neighborhoods', neighborhoodRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {

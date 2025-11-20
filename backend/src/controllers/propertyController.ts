@@ -64,7 +64,7 @@ export const getPropertyById = asyncHandler(async (req: Request, res: Response) 
 export const updateProperty = asyncHandler(async (req: Request, res: Response) => {
     const propertyId = parseInt(req.params.id);
 
-    const property = await PropertyService.updateProperty(propertyId, req.user!.id, req.body);
+    const property = await PropertyService.updateProperty(propertyId, req.body,  req.user!.id);
 
     res.json(
         ApiResponse.success(property, 'Property updated successfully')

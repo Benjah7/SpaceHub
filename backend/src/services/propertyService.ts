@@ -1,45 +1,61 @@
-import { ApiError } from '../utils/apiResponse';
 import { CreatePropertyDTO, UpdatePropertyDTO } from '../types';
 import { RedisService } from './redisService';
 import { CACHE_KEYS } from '../utils/constants';
 import { prisma } from '../utils/prisma';
+import { ApiError } from '../utils/apiResponse';
 
 export class PropertyService {
     /**
      * Create new property
      */
     static async createProperty(data: CreatePropertyDTO, ownerId: number) {
-        // Create property with location
-        const property = await prisma.$queryRaw<any[]>`
-      INSERT INTO properties (
-        "propertyName", address, neighborhood, location, longitude, latitude,
-        "monthlyRent", "squareFeet", bedrooms, bathrooms, description,
-        amenities, "propertyType", "ownerId", "createdAt", "updatedAt"
-      )
-      VALUES (
-        ${data.propertyName}, ${data.address}, ${data.neighborhood},
-        ST_SetSRID(ST_MakePoint(${data.longitude}, ${data.latitude}), 4326)::geography,
-        ${data.longitude}, ${data.latitude}, ${data.monthlyRent}, ${data.squareFeet},
-        ${data.bedrooms || 0}, ${data.bathrooms || 0}, ${data.description},
-        ${data.amenities}::text[], ${data.propertyType}::"PropertyType", ${ownerId},
-        NOW(), NOW()
-      )
-      RETURNING id, "propertyName", address, neighborhood, longitude, latitude,
-                "monthlyRent", "squareFeet", bedrooms, bathrooms, description,
-                amenities, "propertyType", status, "ownerId", "createdAt"
-    `;
+        const property = await prisma.property.create({
+            data: {
+                propertyName: data.propertyName,
+                address: data.address,
+                neighborhood: data.neighborhood,
+                longitude: data.longitude,
+                latitude: data.latitude,
+                monthlyRent: data.monthlyRent,
+                squareFeet: data.squareFeet,
+                bedrooms: data.bedrooms || 0,
+                bathrooms: data.bathrooms || 0,
+                description: data.description,
+                amenities: data.amenities,
+                propertyType: data.propertyType,
+                ownerId,
+            },
+            include: {
+                owner: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        verificationStatus: true,
+                    },
+                },
+            },
+        });
 
         // Invalidate cache
         await RedisService.invalidatePattern('cache:/api/properties*');
         await RedisService.invalidatePattern('cache:/api/search*');
 
-        return property[0];
+        return property;
     }
 
     /**
      * Get property by ID
      */
     static async getPropertyById(propertyId: number, userId?: number) {
+        // Try cache first
+        const cacheKey = CACHE_KEYS.PROPERTY_DETAIL(propertyId);
+        const cached = await RedisService.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+
         const property = await prisma.property.findUnique({
             where: { id: propertyId },
             include: {
@@ -49,13 +65,13 @@ export class PropertyService {
                         name: true,
                         email: true,
                         phone: true,
-                        profileImage: true,
                         verificationStatus: true,
-                        verified: true
-                    }
+                        bio: true,
+                        profileImage: true,
+                    },
                 },
                 images: {
-                    orderBy: { isPrimary: 'desc' }
+                    orderBy: { isPrimary: 'desc' },
                 },
                 reviews: {
                     include: {
@@ -63,21 +79,20 @@ export class PropertyService {
                             select: {
                                 id: true,
                                 name: true,
-                                profileImage: true
-                            }
-                        }
+                                profileImage: true,
+                            },
+                        },
                     },
                     orderBy: { createdAt: 'desc' },
-                    take: 10
                 },
                 _count: {
                     select: {
+                        inquiries: true,
                         favorites: true,
                         reviews: true,
-                        inquiries: true
-                    }
-                }
-            }
+                    },
+                },
+            },
         });
 
         if (!property) {
@@ -87,40 +102,39 @@ export class PropertyService {
         // Increment view count
         await prisma.property.update({
             where: { id: propertyId },
-            data: { views: { increment: 1 } }
+            data: { views: { increment: 1 } },
         });
 
-        // Check if user has favorited this property
+        // Check if favorited by user
         let isFavorited = false;
         if (userId) {
             const favorite = await prisma.favorite.findUnique({
                 where: {
                     userId_propertyId: {
                         userId,
-                        propertyId
-                    }
-                }
+                        propertyId,
+                    },
+                },
             });
             isFavorited = !!favorite;
         }
 
-        // Calculate average rating
-        const avgRating = property.reviews.length > 0
-            ? property.reviews.reduce((sum, r) => sum + r.rating, 0) / property.reviews.length
-            : 0;
-
-        return {
+        const result = {
             ...property,
             isFavorited,
-            averageRating: Math.round(avgRating * 10) / 10,
+            inquiryCount: property._count.inquiries,
+            favoriteCount: property._count.favorites,
             reviewCount: property._count.reviews,
-            favoriteCount: property._count.favorites
         };
-    }
 
+        // Cache for 10 minutes
+        await RedisService.set(cacheKey, JSON.stringify(result), 600);
+
+        return result;
+    }
     /**
-     * Get all properties with pagination
-     */
+         * Get all properties with pagination
+         */
     static async getProperties(page: number = 1, limit: number = 20, filters: any = {}) {
         const skip = (page - 1) * limit;
 
@@ -202,34 +216,46 @@ export class PropertyService {
             }
         };
     }
-
     /**
      * Update property
      */
-    static async updateProperty(propertyId: number, ownerId: number, data: UpdatePropertyDTO) {
+    static async updateProperty(
+        propertyId: number,
+        data: UpdatePropertyDTO,
+        userId: number
+    ) {
         // Verify ownership
         const property = await prisma.property.findUnique({
-            where: { id: propertyId }
+            where: { id: propertyId },
         });
 
         if (!property) {
             throw new ApiError(404, 'Property not found');
         }
 
-        if (property.ownerId !== ownerId) {
+        if (property.ownerId !== userId) {
             throw new ApiError(403, 'Not authorized to update this property');
         }
 
-        // Update property
         const updated = await prisma.property.update({
             where: { id: propertyId },
-            data
+            data,
+            include: {
+                owner: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        verificationStatus: true,
+                    },
+                },
+                images: true,
+            },
         });
 
         // Invalidate cache
         await RedisService.del(CACHE_KEYS.PROPERTY_DETAIL(propertyId));
         await RedisService.invalidatePattern('cache:/api/properties*');
-        await RedisService.invalidatePattern('cache:/api/search*');
 
         return updated;
     }
@@ -237,31 +263,27 @@ export class PropertyService {
     /**
      * Delete property
      */
-    static async deleteProperty(propertyId: number, ownerId: number) {
+    static async deleteProperty(propertyId: number, userId: number) {
         // Verify ownership
         const property = await prisma.property.findUnique({
-            where: { id: propertyId }
+            where: { id: propertyId },
         });
 
         if (!property) {
             throw new ApiError(404, 'Property not found');
         }
 
-        if (property.ownerId !== ownerId) {
+        if (property.ownerId !== userId) {
             throw new ApiError(403, 'Not authorized to delete this property');
         }
 
-        // Delete property (cascades to images, reviews, etc.)
         await prisma.property.delete({
-            where: { id: propertyId }
+            where: { id: propertyId },
         });
 
         // Invalidate cache
         await RedisService.del(CACHE_KEYS.PROPERTY_DETAIL(propertyId));
         await RedisService.invalidatePattern('cache:/api/properties*');
-        await RedisService.invalidatePattern('cache:/api/search*');
-
-        return { message: 'Property deleted successfully' };
     }
 
     /**
