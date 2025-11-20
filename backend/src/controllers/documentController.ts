@@ -2,9 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse, ApiError } from '../utils/apiResponse';
 import { CloudinaryService } from '../services/cloudinaryService';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 /**
  * Upload document

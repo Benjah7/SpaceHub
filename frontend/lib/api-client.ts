@@ -11,6 +11,11 @@ import type {
   DashboardStats,
   PropertyAnalytics,
   Payment,
+  Message,
+  Conversation,
+  Appointment,
+  AppointmentStatus,
+
 } from '@/types';
 import type {
   BackendApiResponse,
@@ -26,6 +31,9 @@ import type {
   BackendSearchCriteria,
   BackendCreatePropertyDTO,
   BackendUpdatePropertyDTO,
+  BackendMessage,
+  BackendConversation,
+  BackendAppointment,
 } from '@/types/backend';
 import {
   PropertyTransformer,
@@ -34,6 +42,9 @@ import {
   ReviewTransformer,
   NotificationTransformer,
   PaginatedResponseTransformer,
+  AppointmentTransformer,
+  ConversationTransformer,
+  MessageTransformer,
 } from '@/lib/api/transformers';
 import { PaymentTransformer } from '@/lib/api/transformers';
 
@@ -1053,6 +1064,231 @@ class ApiClient {
    */
   async deleteDocument(documentId: string): Promise<void> {
     await this.delete(`/documents/${documentId}`);
+  }
+
+   // ============================================
+  // MESSAGING ENDPOINTS
+  // ============================================
+
+  /**
+   * Create or get conversation
+   */
+  async createConversation(data: {
+    participantId: string;
+    propertyId?: string;
+  }): Promise<Conversation> {
+    const response = await this.post<BackendApiResponse<BackendConversation>>(
+      '/messages/conversations',
+      {
+        participantId: parseInt(data.participantId),
+        propertyId: data.propertyId ? parseInt(data.propertyId) : undefined,
+      }
+    );
+
+    if (response.success && response.data) {
+      return ConversationTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Failed to create conversation');
+  }
+
+  /**
+   * Get user conversations
+   */
+  async getConversations(): Promise<Conversation[]> {
+    const response = await this.get<BackendApiResponse<BackendConversation[]>>(
+      '/messages/conversations'
+    );
+
+    if (response.success && response.data) {
+      return response.data.map(ConversationTransformer.toFrontend);
+    }
+
+    return [];
+  }
+
+  /**
+   * Get conversation messages
+   */
+  async getMessages(
+    conversationId: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<PaginatedResponse<Message>> {
+    const response = await this.get<{
+      success: boolean;
+      data: {
+        data: BackendMessage[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      };
+    }>(`/messages/conversations/${conversationId}/messages`, { params });
+
+    if (response.success && response.data) {
+      return {
+        data: response.data.data.map(MessageTransformer.toFrontend),
+        pagination: response.data.pagination,
+      };
+    }
+
+    throw new Error('Failed to fetch messages');
+  }
+
+  /**
+   * Send message
+   */
+  async sendMessage(conversationId: string, content: string): Promise<Message> {
+    const response = await this.post<BackendApiResponse<BackendMessage>>(
+      `/messages/conversations/${conversationId}/messages`,
+      { content }
+    );
+
+    if (response.success && response.data) {
+      return MessageTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Failed to send message');
+  }
+
+  /**
+   * Mark messages as read
+   */
+  async markMessagesAsRead(conversationId: string): Promise<void> {
+    await this.put(`/messages/conversations/${conversationId}/read`);
+  }
+
+  /**
+   * Get unread message count
+   */
+  async getUnreadMessageCount(): Promise<number> {
+    const response = await this.get<BackendApiResponse<{ count: number }>>(
+      '/messages/unread/count'
+    );
+
+    return response.success && response.data ? response.data.count : 0;
+  }
+
+  // ============================================
+  // APPOINTMENT ENDPOINTS
+  // ============================================
+
+  /**
+   * Create appointment
+   */
+  async createAppointment(data: {
+    propertyId: string;
+    scheduledDate: string;
+    notes?: string;
+  }): Promise<Appointment> {
+    const response = await this.post<BackendApiResponse<BackendAppointment>>(
+      '/appointments',
+      {
+        propertyId: parseInt(data.propertyId),
+        scheduledDate: data.scheduledDate,
+        notes: data.notes,
+      }
+    );
+
+    if (response.success && response.data) {
+      return AppointmentTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Failed to create appointment');
+  }
+
+  /**
+   * Get appointments
+   */
+  async getAppointments(params?: {
+    status?: AppointmentStatus;
+    role?: 'tenant' | 'owner';
+  }): Promise<Appointment[]> {
+    const response = await this.get<BackendApiResponse<BackendAppointment[]>>(
+      '/appointments',
+      { params }
+    );
+
+    if (response.success && response.data) {
+      return response.data.map(AppointmentTransformer.toFrontend);
+    }
+
+    return [];
+  }
+
+  /**
+   * Get appointment by ID
+   */
+  async getAppointment(id: string): Promise<Appointment> {
+    const response = await this.get<BackendApiResponse<BackendAppointment>>(
+      `/appointments/${id}`
+    );
+
+    if (response.success && response.data) {
+      return AppointmentTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Appointment not found');
+  }
+
+  /**
+   * Update appointment status
+   */
+  async updateAppointmentStatus(
+    id: string,
+    status: AppointmentStatus,
+    cancellationReason?: string
+  ): Promise<Appointment> {
+    const response = await this.put<BackendApiResponse<BackendAppointment>>(
+      `/appointments/${id}/status`,
+      { status, cancellationReason }
+    );
+
+    if (response.success && response.data) {
+      return AppointmentTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Failed to update appointment');
+  }
+
+  /**
+   * Reschedule appointment
+   */
+  async rescheduleAppointment(
+    id: string,
+    scheduledDate: string,
+    notes?: string
+  ): Promise<Appointment> {
+    const response = await this.put<BackendApiResponse<BackendAppointment>>(
+      `/appointments/${id}/reschedule`,
+      { scheduledDate, notes }
+    );
+
+    if (response.success && response.data) {
+      return AppointmentTransformer.toFrontend(response.data);
+    }
+
+    throw new Error('Failed to reschedule appointment');
+  }
+
+  /**
+   * Delete appointment
+   */
+  async deleteAppointment(id: string): Promise<void> {
+    await this.delete(`/appointments/${id}`);
+  }
+
+  /**
+   * Get upcoming appointments count
+   */
+  async getUpcomingAppointmentsCount(): Promise<number> {
+    const response = await this.get<BackendApiResponse<{ count: number }>>(
+      '/appointments/upcoming/count'
+    );
+
+    return response.success && response.data ? response.data.count : 0;
   }
 }
 

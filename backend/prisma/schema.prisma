@@ -1,10 +1,233 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int                @id @default(autoincrement())
+  email              String             @unique @db.VarChar(255)
+  password           String
+  name               String             @db.VarChar(200)
+  phone              String             @db.VarChar(20)
+  role               UserRole           @default(TENANT)
+  verified           Boolean            @default(false)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  bio                String?
+  profileImage       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  documents          Document[]
+  favorites          Favorite[]
+  inquiriesReceived  Inquiry[]          @relation("OwnerInquiries")
+  inquiriesSent      Inquiry[]          @relation("TenantInquiries")
+  notifications      Notification[]
+  payments           Payment[]
+  properties         Property[]
+  reviews            Review[]
+  savedSearches      SavedSearch[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Property {
+  id           Int                      @id @default(autoincrement())
+  propertyName String                   @db.VarChar(200)
+  address      String
+  neighborhood String                   @db.VarChar(100)
+  location     Unsupported("geography")
+  longitude    Float
+  latitude     Float
+  monthlyRent  Decimal                  @db.Decimal(10, 2)
+  squareFeet   Int
+  bedrooms     Int                      @default(0)
+  bathrooms    Int                      @default(0)
+  description  String
+  amenities    String[]
+  propertyType PropertyType
+  status       PropertyStatus           @default(AVAILABLE)
+  views        Int                      @default(0)
+  featured     Boolean                  @default(false)
+  ownerId      Int
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  documents    Document[]
+  favorites    Favorite[]
+  inquiries    Inquiry[]
+  payments     Payment[]
+  owner        User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  images       PropertyImage[]
+  reviews      Review[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([propertyType])
+  @@index([neighborhood])
+  @@index([monthlyRent])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         Int      @id @default(autoincrement())
+  url        String
+  publicId   String?
+  isPrimary  Boolean  @default(false)
+  propertyId Int
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("property_images")
+}
+
+model Favorite {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  propertyId Int
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@map("favorites")
+}
+
+model SavedSearch {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  name            String   @db.VarChar(200)
+  criteria        Json
+  notifyEmail     Boolean  @default(true)
+  notifySMS       Boolean  @default(false)
+  newMatchesCount Int      @default(0)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_searches")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  rating     Int
+  comment    String
+  aspects    Json?
+  userId     Int
+  propertyId Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model Inquiry {
+  id                   Int           @id @default(autoincrement())
+  message              String
+  response             String?
+  status               InquiryStatus @default(PENDING)
+  preferredViewingDate DateTime?
+  tenantId             Int
+  propertyId           Int
+  ownerId              Int
+  createdAt            DateTime      @default(now())
+  respondedAt          DateTime?
+  owner                User          @relation("OwnerInquiries", fields: [ownerId], references: [id], onDelete: Cascade)
+  property             Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant               User          @relation("TenantInquiries", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([propertyId])
+  @@map("inquiries")
+}
+
+model Payment {
+  id                 Int           @id @default(autoincrement())
+  amount             Decimal       @db.Decimal(10, 2)
+  phoneNumber        String        @db.VarChar(20)
+  paymentType        String        @db.VarChar(50)
+  status             PaymentStatus @default(PENDING)
+  mpesaReceiptNumber String?       @db.VarChar(100)
+  checkoutRequestID  String        @unique @db.VarChar(100)
+  merchantRequestID  String?       @db.VarChar(100)
+  userId             Int
+  propertyId         Int
+  createdAt          DateTime      @default(now())
+  completedAt        DateTime?
+  property           Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([checkoutRequestID])
+  @@map("payments")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(200)
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  userId    Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model Neighborhood {
+  id              Int                       @id @default(autoincrement())
+  name            String                    @unique @db.VarChar(100)
+  description     String
+  boundary        Unsupported("geography")?
+  demographics    Json?
+  footTraffic     String?                   @db.VarChar(50)
+  transportAccess Json?
+  averageRent     Decimal?                  @db.Decimal(10, 2)
+  propertyCount   Int                       @default(0)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@map("neighborhoods")
+}
+
+model Document {
+  id         Int       @id @default(autoincrement())
+  filename   String    @db.VarChar(255)
+  url        String
+  publicId   String?
+  type       String    @db.VarChar(50)
+  userId     Int
+  propertyId Int?
+  createdAt  DateTime  @default(now())
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@map("documents")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
 }
 
 enum UserRole {
@@ -45,230 +268,4 @@ enum VerificationStatus {
   PENDING
   VERIFIED
   REJECTED
-}
-
-model User {
-  id                Int                @id @default(autoincrement())
-  email             String             @unique @db.VarChar(255)
-  password          String
-  name              String             @db.VarChar(200)
-  phone             String             @db.VarChar(20)
-  role              UserRole           @default(TENANT)
-  verified          Boolean            @default(false)
-  verificationStatus VerificationStatus @default(UNVERIFIED)
-  bio               String?            @db.Text
-  profileImage      String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  
-  // Relations
-  properties        Property[]
-  favorites         Favorite[]
-  savedSearches     SavedSearch[]
-  reviews           Review[]
-  inquiriesSent     Inquiry[]          @relation("TenantInquiries")
-  inquiriesReceived Inquiry[]          @relation("OwnerInquiries")
-  payments          Payment[]
-  notifications     Notification[]
-  documents         Document[]
-  
-  @@index([email])
-  @@index([role])
-  @@map("users")
-}
-
-model Property {
-  id              Int              @id @default(autoincrement())
-  propertyName    String           @db.VarChar(200)
-  address         String           @db.Text
-  neighborhood    String           @db.VarChar(100)
-  location        Unsupported("geography(Point, 4326)")
-  longitude       Float
-  latitude        Float
-  monthlyRent     Decimal          @db.Decimal(10, 2)
-  squareFeet      Int
-  bedrooms        Int              @default(0)
-  bathrooms       Int              @default(0)
-  description     String           @db.Text
-  amenities       String[]
-  propertyType    PropertyType
-  status          PropertyStatus   @default(AVAILABLE)
-  views           Int              @default(0)
-  featured        Boolean          @default(false)
-  ownerId         Int
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  
-  // Relations
-  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  images          PropertyImage[]
-  favorites       Favorite[]
-  reviews         Review[]
-  inquiries       Inquiry[]
-  payments        Payment[]
-  documents       Document[]
-  
-  @@index([ownerId])
-  @@index([status])
-  @@index([propertyType])
-  @@index([neighborhood])
-  @@index([monthlyRent])
-  @@map("properties")
-}
-
-model PropertyImage {
-  id          Int      @id @default(autoincrement())
-  url         String
-  publicId    String?
-  isPrimary   Boolean  @default(false)
-  propertyId  Int
-  createdAt   DateTime @default(now())
-  
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@index([propertyId])
-  @@map("property_images")
-}
-
-model Favorite {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  propertyId Int
-  createdAt  DateTime @default(now())
-  
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, propertyId])
-  @@index([userId])
-  @@map("favorites")
-}
-
-model SavedSearch {
-  id              Int      @id @default(autoincrement())
-  userId          Int
-  name            String   @db.VarChar(200)
-  criteria        Json
-  notifyEmail     Boolean  @default(true)
-  notifySMS       Boolean  @default(false)
-  newMatchesCount Int      @default(0)
-  createdAt       DateTime @default(now())
-  
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@map("saved_searches")
-}
-
-model Review {
-  id         Int      @id @default(autoincrement())
-  rating     Int
-  comment    String   @db.Text
-  aspects    Json?
-  userId     Int
-  propertyId Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@index([propertyId])
-  @@index([userId])
-  @@map("reviews")
-}
-
-model Inquiry {
-  id                  Int           @id @default(autoincrement())
-  message             String        @db.Text
-  response            String?       @db.Text
-  status              InquiryStatus @default(PENDING)
-  preferredViewingDate DateTime?
-  tenantId            Int
-  propertyId          Int
-  ownerId             Int
-  createdAt           DateTime      @default(now())
-  respondedAt         DateTime?
-  
-  tenant              User          @relation("TenantInquiries", fields: [tenantId], references: [id], onDelete: Cascade)
-  owner               User          @relation("OwnerInquiries", fields: [ownerId], references: [id], onDelete: Cascade)
-  property            Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@index([tenantId])
-  @@index([ownerId])
-  @@index([propertyId])
-  @@map("inquiries")
-}
-
-model Payment {
-  id                  Int           @id @default(autoincrement())
-  amount              Decimal       @db.Decimal(10, 2)
-  phoneNumber         String        @db.VarChar(20)
-  paymentType         String        @db.VarChar(50)
-  status              PaymentStatus @default(PENDING)
-  mpesaReceiptNumber  String?       @db.VarChar(100)
-  checkoutRequestID   String        @unique @db.VarChar(100)
-  merchantRequestID   String?       @db.VarChar(100)
-  userId              Int
-  propertyId          Int
-  createdAt           DateTime      @default(now())
-  completedAt         DateTime?
-  
-  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  property            Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([propertyId])
-  @@index([checkoutRequestID])
-  @@map("payments")
-}
-
-model Notification {
-  id        Int      @id @default(autoincrement())
-  type      String   @db.VarChar(50)
-  title     String   @db.VarChar(200)
-  message   String   @db.Text
-  link      String?
-  read      Boolean  @default(false)
-  userId    Int
-  createdAt DateTime @default(now())
-  
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, read])
-  @@map("notifications")
-}
-
-model Neighborhood {
-  id              Int      @id @default(autoincrement())
-  name            String   @unique @db.VarChar(100)
-  description     String   @db.Text
-  boundary        Unsupported("geography(Polygon, 4326)")?
-  demographics    Json?
-  footTraffic     String?  @db.VarChar(50)
-  transportAccess Json?
-  averageRent     Decimal? @db.Decimal(10, 2)
-  propertyCount   Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@map("neighborhoods")
-}
-
-model Document {
-  id         Int      @id @default(autoincrement())
-  filename   String   @db.VarChar(255)
-  url        String
-  publicId   String?
-  type       String   @db.VarChar(50)
-  userId     Int
-  propertyId Int?
-  createdAt  DateTime @default(now())
-  
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([propertyId])
-  @@map("documents")
 }

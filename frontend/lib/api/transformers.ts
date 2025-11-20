@@ -12,6 +12,10 @@ import type {
   Review,
   Notification,
   PaginatedResponse,
+  Appointment,
+  AppointmentStatus,
+  Conversation,
+  Message,
 } from '@/types';
 
 import type {
@@ -25,6 +29,9 @@ import type {
   BackendNotification,
   BackendPaginatedResponse,
   BackendPaymentStatus,
+  BackendAppointment,
+  BackendConversation,
+  BackendMessage,
 } from '@/types/backend';
 
 /**
@@ -67,19 +74,19 @@ export class PropertyTransformer {
       owner: backend.owner
         ? UserTransformer.toPropertyOwner(backend.owner)
         : {
-            id: String(backend.ownerId),
-            email: '',
-            name: '',
-            firstName: '',
-            lastName: '',
-            phone: '',
-            role: 'OWNER' as const,
-            verified: false,
-            createdAt: backend.createdAt,
-            properties: [],
-            rating: 0,
-            reviewCount: 0,
-          },
+          id: String(backend.ownerId),
+          email: '',
+          name: '',
+          firstName: '',
+          lastName: '',
+          phone: '',
+          role: 'OWNER' as const,
+          verified: false,
+          createdAt: backend.createdAt,
+          properties: [],
+          rating: 0,
+          reviewCount: 0,
+        },
       availableFrom: backend.createdAt,
       createdAt: backend.createdAt,
       updatedAt: backend.updatedAt,
@@ -200,46 +207,46 @@ export class InquiryTransformer {
       property: backend.property
         ? PropertyTransformer.toFrontend(backend.property)
         : {
-            id: String(backend.propertyId),
-            title: '',
-            description: '',
-            propertyType: PropertyType.RETAIL,
-            status: PropertyStatus.AVAILABLE,
-            price: 0,
-            size: 0,
-            location: {
-              lat: 0,
-              lng: 0,
-              address: '',
-              neighborhood: '',
-              city: 'Nairobi',
-              county: 'Nairobi',
-            },
-            images: [],
-            amenities: [],
-            verified: false,
-            ownerId: '',
-            owner: {} as PropertyOwner,
-            availableFrom: '',
-            createdAt: '',
-            updatedAt: '',
-            views: 0,
-            inquiries: 0,
+          id: String(backend.propertyId),
+          title: '',
+          description: '',
+          propertyType: PropertyType.RETAIL,
+          status: PropertyStatus.AVAILABLE,
+          price: 0,
+          size: 0,
+          location: {
+            lat: 0,
+            lng: 0,
+            address: '',
+            neighborhood: '',
+            city: 'Nairobi',
+            county: 'Nairobi',
           },
+          images: [],
+          amenities: [],
+          verified: false,
+          ownerId: '',
+          owner: {} as PropertyOwner,
+          availableFrom: '',
+          createdAt: '',
+          updatedAt: '',
+          views: 0,
+          inquiries: 0,
+        },
       tenantId: String(backend.tenantId),
       tenant: backend.tenant
         ? UserTransformer.toFrontend(backend.tenant)
         : {
-            id: String(backend.tenantId),
-            email: '',
-            name: '',
-            firstName: '',
-            lastName: '',
-            phone: '',
-            role: 'TENANT' as const,
-            verified: false,
-            createdAt: '',
-          },
+          id: String(backend.tenantId),
+          email: '',
+          name: '',
+          firstName: '',
+          lastName: '',
+          phone: '',
+          role: 'TENANT' as const,
+          verified: false,
+          createdAt: '',
+        },
       preferredViewingDate: backend.preferredViewingDate,
       response: backend.response,
       createdAt: backend.createdAt,
@@ -265,16 +272,16 @@ export class ReviewTransformer {
       user: backend.user
         ? UserTransformer.toFrontend(backend.user)
         : {
-            id: String(backend.userId),
-            email: '',
-            name: '',
-            firstName: '',
-            lastName: '',
-            phone: '',
-            role: 'TENANT' as const,
-            verified: false,
-            createdAt: '',
-          },
+          id: String(backend.userId),
+          email: '',
+          name: '',
+          firstName: '',
+          lastName: '',
+          phone: '',
+          role: 'TENANT' as const,
+          verified: false,
+          createdAt: '',
+        },
       createdAt: backend.createdAt,
       updatedAt: backend.updatedAt,
     };
@@ -366,6 +373,121 @@ export class PaginatedResponseTransformer {
         total: backend.pagination.total,
         totalPages: backend.pagination.totalPages,
       },
+    };
+  }
+}
+
+/**
+ * Message Transformers
+ */
+export class MessageTransformer {
+  static toFrontend(backend: BackendMessage): Message {
+    return {
+      id: String(backend.id),
+      conversationId: String(backend.conversationId),
+      senderId: String(backend.senderId),
+      sender: backend.sender ? {
+        id: String(backend.sender.id),
+        name: backend.sender.name,
+        profileImage: backend.sender.profileImage,
+      } : undefined,
+      content: backend.content,
+      read: backend.read,
+      createdAt: backend.createdAt,
+      receiverId: String(backend.conversationId),
+    };
+  }
+}
+
+/**
+ * Conversation Transformers
+ */
+export class ConversationTransformer {
+  static toFrontend(backend: BackendConversation): Conversation {
+    return {
+      id: String(backend.id),
+      propertyId: backend.propertyId ? String(backend.propertyId) : undefined,
+      participants: backend.participants.map((p) => ({
+        id: String(p.id),
+        conversationId: String(p.conversationId),
+        userId: String(p.userId),
+        lastReadAt: p.lastReadAt,
+        user: {
+          id: String(p.user.id),
+          name: p.user.name,
+          email: p.user.email,
+          profileImage: p.user.profileImage,
+          role: p.user.role as any,
+        },
+      })),
+      messages: backend.messages?.map(MessageTransformer.toFrontend),
+      lastMessage: backend.messages?.[0]
+        ? MessageTransformer.toFrontend(backend.messages[0])
+        : undefined,
+      unreadCount: backend.unreadCount || 0,
+      property: backend.property ? {
+        id: String(backend.property.id),
+        propertyName: backend.property.propertyName,
+        address: backend.property.address,
+        images: backend.property.images?.map((img) => ({
+          id: '0',
+          url: img.url,
+          alt: backend.property!.propertyName,
+          isPrimary: true,
+        })),
+      } : undefined,
+      createdAt: backend.createdAt,
+      updatedAt: backend.updatedAt,
+    };
+  }
+}
+
+/**
+ * Appointment Transformers
+ */
+export class AppointmentTransformer {
+  static toFrontend(backend: BackendAppointment): Appointment {
+    return {
+      id: String(backend.id),
+      propertyId: String(backend.propertyId),
+      property: backend.property ? {
+        id: String(backend.property.id),
+        propertyName: backend.property.propertyName,
+        address: backend.property.address,
+        neighborhood: backend.property.neighborhood,
+        monthlyRent: backend.property.monthlyRent
+          ? parseFloat(backend.property.monthlyRent)
+          : undefined,
+        squareFeet: backend.property.squareFeet,
+        images: backend.property.images?.map((img) => ({
+          id: '0',
+          url: img.url,
+          alt: backend.property!.propertyName,
+          isPrimary: true,
+        })),
+      } : undefined,
+      tenantId: String(backend.tenantId),
+      tenant: backend.tenant ? {
+        id: String(backend.tenant.id),
+        name: backend.tenant.name,
+        email: backend.tenant.email,
+        phone: backend.tenant.phone,
+        profileImage: backend.tenant.profileImage,
+      } : undefined,
+      ownerId: String(backend.ownerId),
+      owner: backend.owner ? {
+        id: String(backend.owner.id),
+        name: backend.owner.name,
+        email: backend.owner.email,
+        phone: backend.owner.phone,
+        profileImage: backend.owner.profileImage,
+      } : undefined,
+      scheduledDate: backend.scheduledDate,
+      status: backend.status as AppointmentStatus,
+      notes: backend.notes,
+      cancellationReason: backend.cancellationReason,
+      createdAt: backend.createdAt,
+      updatedAt: backend.updatedAt,
     };
   }
 }

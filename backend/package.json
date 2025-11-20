@@ -27,7 +27,8 @@
   "author": "Space Hub Team",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.7.0",
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
     "@sendgrid/mail": "^8.1.0",
     "africastalking": "^0.6.1",
     "axios": "^1.6.2",
@@ -61,7 +62,7 @@
     "eslint-plugin-prettier": "^5.5.4",
     "nodemon": "^3.0.2",
     "prettier": "^3.6.2",
-    "prisma": "^5.7.0",
+    "prisma": "^7.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

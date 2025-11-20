@@ -561,11 +561,19 @@ export interface Message {
 
 export interface Conversation {
   id: string;
-  participants: User[];
-  lastMessage: Message;
+  propertyId?: string;
+  participants: ConversationParticipant[];
+  messages?: Message[];
+  lastMessage?: Message;
   unreadCount: number;
-  property?: Property;
+  property?: {
+    id: string;
+    propertyName: string;
+    address: string;
+    images?: PropertyImage[];
+  };
   createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================
@@ -575,17 +583,38 @@ export interface Conversation {
 export interface Appointment {
   id: string;
   propertyId: string;
-  property?: Property;
+  property?: {
+    id: string;
+    propertyName: string;
+    address: string;
+    neighborhood?: string;
+    monthlyRent?: number;
+    squareFeet?: number;
+    images?: PropertyImage[];
+  };
   tenantId: string;
-  tenant?: User;
+  tenant?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    profileImage?: string;
+  };
   ownerId: string;
-  owner?: User;
+  owner?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    profileImage?: string;
+  };
   scheduledDate: string;
-  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  status: AppointmentStatus;
   notes?: string;
+  cancellationReason?: string;
   createdAt: string;
+  updatedAt: string;
 }
-
 // ============================================
 // VERIFICATION TYPES
 // ============================================
@@ -743,12 +772,6 @@ export function isUser(obj: unknown): obj is User {
   );
 }
 
-/**
- * Additional Type Exports
- * Add these to your existing frontend/types/index.ts file
- */
-
-// Payment Types (add these if not already present)
 export interface Payment {
   id: string;
   amount: number;
@@ -780,4 +803,41 @@ export type InquiryStatus = 'PENDING' | 'RESPONDED' | 'CLOSED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
 
-// export { PropertyType, PropertyStatus };
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  sender?: {
+    id: string;
+    name: string;
+    profileImage?: string;
+  };
+  content: string;
+  read: boolean;
+  createdAt: string;
+}
+
+
+export interface ConversationParticipant {
+  id: string;
+  conversationId: string;
+  userId: string;
+  lastReadAt?: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    profileImage?: string;
+    role: UserRole;
+  };
+}
+
+
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+
+export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+};

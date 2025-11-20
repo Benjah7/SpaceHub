@@ -45,6 +45,24 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat('en-KE').format(num);
 }
 
+export function formatTime(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  };
+
+  const dateObj = new Date(date);
+
+  // Check if the dateObj is a valid date
+  if (isNaN(dateObj.getTime())) {
+    // Handle invalid date: return a default string or throw an error
+    return 'Invalid Time'; // Or an empty string, or 'N/A'
+  }
+
+  return new Intl.DateTimeFormat('en-KE', options || defaultOptions).format(dateObj);
+}
+
 /**
  * Format date to relative time (e.g., "2 days ago")
  */

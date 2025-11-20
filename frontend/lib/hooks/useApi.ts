@@ -10,6 +10,10 @@ import type {
   PropertyAnalytics,
   Payment,
   SavedSearch,
+  Appointment,
+  AppointmentStatus,
+  Conversation,
+  Message,
 } from '@/types';
 import type { BackendSearchCriteria } from '@/types/backend';
 
@@ -880,6 +884,269 @@ export function useNeighborhoodInsights(neighborhood: string | null) {
   return {
     ...state,
     refetch: fetchInsights,
+  };
+}
+
+
+
+// ============================================
+// MESSAGING HOOKS
+// ============================================
+
+/**
+ * Hook to fetch conversations
+ */
+export function useConversations() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getConversations();
+      setConversations(data);
+      setError(null);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to fetch conversations');
+      setError(error);
+      ErrorHandler.handle(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  return {
+    conversations,
+    loading,
+    error,
+    refetch: fetchConversations,
+  };
+}
+
+/**
+ * Hook to fetch messages for a conversation
+ */
+export function useMessages(conversationId: string | null, page: number = 1) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1,
+  });
+
+  const fetchMessages = useCallback(async () => {
+    if (!conversationId) return;
+
+    try {
+      setLoading(true);
+      const response = await apiClient.getMessages(conversationId, { page, limit: 50 });
+      setMessages(response.data);
+      setPagination(response.pagination);
+      setError(null);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to fetch messages');
+      setError(error);
+      ErrorHandler.handle(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId, page]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  return {
+    messages,
+    loading,
+    error,
+    pagination,
+    refetch: fetchMessages,
+  };
+}
+
+/**
+ * Hook to send messages
+ */
+export function useSendMessage(conversationId: string | null) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const sendMessage = useCallback(
+    async (content: string): Promise<Message | null> => {
+      if (!conversationId) return null;
+
+      try {
+        setSending(true);
+        setError(null);
+        const message = await apiClient.sendMessage(conversationId, content);
+        return message;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to send message');
+        setError(error);
+        ErrorHandler.handle(err);
+        return null;
+      } finally {
+        setSending(false);
+      }
+    },
+    [conversationId]
+  );
+
+  return {
+    sendMessage,
+    sending,
+    error,
+  };
+}
+
+/**
+ * Hook to get unread message count
+ */
+export function useUnreadMessageCount() {
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCount = useCallback(async () => {
+    try {
+      const count = await apiClient.getUnreadMessageCount();
+      setCount(count);
+    } catch (err) {
+      ErrorHandler.handle(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+    // Poll every 30 seconds
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCount]);
+
+  return {
+    count,
+    loading,
+    refetch: fetchCount,
+  };
+}
+
+// ============================================
+// APPOINTMENT HOOKS
+// ============================================
+
+/**
+ * Hook to fetch appointments
+ */
+export function useAppointments(params?: {
+  status?: AppointmentStatus;
+  role?: 'tenant' | 'owner';
+}) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.getAppointments(params);
+      setAppointments(data);
+      setError(null);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to fetch appointments');
+      setError(error);
+      ErrorHandler.handle(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [params?.status, params?.role]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  return {
+    appointments,
+    loading,
+    error,
+    refetch: fetchAppointments,
+  };
+}
+
+/**
+ * Hook to fetch a single appointment
+ */
+export function useAppointment(id: string | null) {
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchAppointment = async () => {
+      try {
+        setLoading(true);
+        const data = await apiClient.getAppointment(id);
+        setAppointment(data);
+        setError(null);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to fetch appointment');
+        setError(error);
+        ErrorHandler.handle(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAppointment();
+  }, [id]);
+
+  return {
+    appointment,
+    loading,
+    error,
+  };
+}
+
+/**
+ * Hook to get upcoming appointments count
+ */
+export function useUpcomingAppointmentsCount() {
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCount = useCallback(async () => {
+    try {
+      const count = await apiClient.getUpcomingAppointmentsCount();
+      setCount(count);
+    } catch (err) {
+      ErrorHandler.handle(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+  }, [fetchCount]);
+
+  return {
+    count,
+    loading,
+    refetch: fetchCount,
   };
 }
 

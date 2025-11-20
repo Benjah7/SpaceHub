@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse, ApiError } from '../utils/apiResponse';
-import { PrismaClient } from '@prisma/client';
 import { EmailService } from '../services/emailService';
 import { SMSService } from '../services/smsService';
+import { prisma } from '../utils/prisma';
 
-const prisma = new PrismaClient();
 
 /**
  * Create new inquiry

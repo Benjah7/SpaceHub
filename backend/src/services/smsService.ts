@@ -11,7 +11,7 @@ export class SMSService {
     /**
      * Send SMS notification
      */
-    static async sendSMS(to: string, message: string) {
+    static async sendSMS(to: string, message: string): Promise<any> {
         try {
             const result = await sms.send({
                 to: [to],

@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse, ApiError } from '../utils/apiResponse';
-import { PrismaClient } from '@prisma/client';
 import { RedisService } from '../services/redisService';
 import { CACHE_KEYS } from '../utils/constants';
+import { prisma } from '../utils/prisma';
 
-const prisma = new PrismaClient();
+
 
 /**
  * Add property to favorites

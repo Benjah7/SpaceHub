@@ -236,3 +236,97 @@ export interface BackendDashboardStats {
   totalViews: number;
   totalRevenue: string; // Decimal as string
 }
+
+
+// Appointment Status
+export enum BackendAppointmentStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+// Message from backend
+export interface BackendMessage {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  content: string;
+  read: boolean;
+  createdAt: string;
+  sender?: {
+    id: number;
+    name: string;
+    profileImage?: string;
+  };
+}
+
+// Conversation from backend
+export interface BackendConversation {
+  id: number;
+  propertyId?: number;
+  createdAt: string;
+  updatedAt: string;
+  participants: BackendConversationParticipant[];
+  messages?: BackendMessage[];
+  property?: {
+    id: number;
+    propertyName: string;
+    address: string;
+    images?: { url: string }[];
+  };
+  unreadCount?: number;
+}
+
+// Conversation Participant from backend
+export interface BackendConversationParticipant {
+  id: number;
+  conversationId: number;
+  userId: number;
+  lastReadAt?: string;
+  createdAt: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    profileImage?: string;
+    role: BackendUserRole;
+  };
+}
+
+// Appointment from backend
+export interface BackendAppointment {
+  id: number;
+  propertyId: number;
+  tenantId: number;
+  ownerId: number;
+  scheduledDate: string;
+  status: BackendAppointmentStatus;
+  notes?: string;
+  cancellationReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  property?: {
+    id: number;
+    propertyName: string;
+    address: string;
+    neighborhood?: string;
+    monthlyRent?: string;
+    squareFeet?: number;
+    images?: { url: string; isPrimary: boolean }[];
+  };
+  tenant?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    profileImage?: string;
+  };
+  owner?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    profileImage?: string;
+  };
+}
