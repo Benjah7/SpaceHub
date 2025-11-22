@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, MapPin, Grid, List as ListIcon, Map, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,8 @@ import { ErrorHandler } from '@/lib/utils/error-handler';
 import { PropertyStatus, PROPERTY_TYPE_LABELS } from '@/types';
 import type { Property, SearchFilters } from '@/types';
 import { useLanguageStore } from '@/lib/store/language-store';
+import { useAuthStore } from '@/lib/store/auth-store';
+import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list';
 
@@ -24,6 +26,7 @@ type ViewMode = 'grid' | 'list';
 const ITEMS_PER_PAGE = 12;
 
 export default function ListingsPage() {
+  const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   useLanguageStore();
@@ -35,7 +38,9 @@ export default function ListingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const { isAuthenticated, user } = useAuthStore();
   
+
   const [filters, setFilters] = useState<SearchFilters>({
     location: searchParams.get('q') || '',
     propertyType: [],
@@ -88,9 +93,31 @@ export default function ListingsPage() {
     setCurrentPage(1);
   };
 
-  const activeFilterCount = Object.values(filters).filter(v => 
+  const activeFilterCount = Object.values(filters).filter(v =>
     Array.isArray(v) ? v.length > 0 : v !== undefined && v !== ''
   ).length;
+
+  const handleContactOwner = async (property: Property) => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/properties/${params.id}`);
+      return;
+    }
+
+    if (user?.id === property?.ownerId) {
+      toast.error('You cannot message yourself');
+      return;
+    }
+
+    try {
+      const conversation = await apiClient.createConversation({
+        participantId: property!.ownerId,
+        propertyId: property!.id,
+      });
+      router.push(`/messages?conversation=${conversation.id}`);
+    } catch (error) {
+      ErrorHandler.handle(error, 'Failed to start conversation');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-bg">
@@ -103,7 +130,7 @@ export default function ListingsPage() {
               {totalItems} properties available
             </p>
           </div>
-          
+
           <div className="flex gap-md">
             {/* Map View Button */}
             <Button
@@ -224,6 +251,7 @@ export default function ListingsPage() {
                 >
                   <PropertyCard
                     property={property}
+                    onContact={() => handleContactOwner(property)}
                   />
                 </div>
               ))}

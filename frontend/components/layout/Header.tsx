@@ -20,13 +20,14 @@ export const Header: React.FC = () => {
   const { count: unreadMessages } = useUnreadMessageCount();
   const { count: upcomingAppointments } = useUpcomingAppointmentsCount();
 
+  // Then wrap with conditional check:
   const navigation = [
     { name: t('nav.home'), href: '/' },
     { name: t('nav.listings'), href: '/listings' },
     ...(isAuthenticated
       ? [
-        { name: 'Messages', href: '/messages', badge: unreadMessages },
-        { name: 'Appointments', href: '/appointments', badge: upcomingAppointments },
+        { name: 'Messages', href: '/messages', badge: unreadMessages || 0 },
+        { name: 'Appointments', href: '/appointments', badge: upcomingAppointments || 0 },
       ]
       : []),
     ...(isAuthenticated && user?.role === 'OWNER'
@@ -66,7 +67,7 @@ export const Header: React.FC = () => {
                 )}
               >
                 {item.name}
-                {item.badge && item.badge > 0 && (
+                {item.badge !== undefined && item.badge > 0 && (
                   <span className="bg-brand-accent text-white text-tiny px-1.5 py-0.5 rounded-full font-semibold">
                     {item.badge}
                   </span>
@@ -128,7 +129,7 @@ export const Header: React.FC = () => {
                   >
                     <span className="flex items-center justify-between">
                       {item.name}
-                      {item.badge && item.badge > 0 && (
+                      {item.badge !== undefined && item.badge > 0 && (
                         <span className="bg-brand-accent text-white text-tiny px-1.5 py-0.5 rounded-full font-semibold">
                           {item.badge}
                         </span>

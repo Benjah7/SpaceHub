@@ -14,143 +14,169 @@ import {
   Mail,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
-  Map as MapIcon,
+  MessageSquare,
+  Calendar,
+  Building2,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
+import { AppointmentModal } from '@/components/appointments/AppointmentModal';
 import { PropertyCard } from '@/components/property/PropertyCard';
 import { PropertyDetailSkeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { PaymentModal } from '@/components/payment/PaymentModal';
 import { PropertyMap } from '@/components/maps/PropertyMap';
 import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useLanguageStore } from '@/lib/store/language-store';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { PROPERTY_TYPE_LABELS } from '@/types';
+import { PROPERTY_TYPE_LABELS, PROPERTY_STATUS_LABELS } from '@/types';
 import type { Property } from '@/types';
 import toast from 'react-hot-toast';
 
 export default function PropertyDetailPage() {
   const params = useParams();
   const router = useRouter();
-  useLanguageStore();
   const { isAuthenticated, user } = useAuthStore();
   
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
-  const [showInquiryModal, setShowInquiryModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [similarProperties, setSimilarProperties] = useState<Property[]>([]);
-  
-  const [inquiryForm, setInquiryForm] = useState({
-    message: '',
-    preferredViewingDate: '',
-  });
-  const [submittingInquiry, setSubmittingInquiry] = useState(false);
+
+  const isOwner = user?.id === property?.ownerId;
 
   useEffect(() => {
-    const fetchProperty = async () => {
-      if (!params.id) return;
-      
-      setLoading(true);
-      try {
-        const data = await apiClient.getPropertyById(params.id as string);
-        setProperty(data);
-
-        // Fetch similar properties
-        if (data) {
-          const similar = await apiClient.getProperties({
-            propertyType: data.propertyType,
-            limit: 3,
-          });
-          setSimilarProperties(similar.data.filter(p => p.id !== data.id));
-        }
-
-        // Check if favorited
-        if (isAuthenticated) {
-          try {
-            const favorites = await apiClient.getFavorites();
-            setIsFavorite(favorites.some(f => f.id === params.id));
-          } catch (error) {
-            // Ignore error
-          }
-        }
-      } catch (error) {
-        ErrorHandler.handle(error, 'Failed to load property');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProperty();
-  }, [params.id, isAuthenticated]);
+  }, [params.id]);
+
+  const fetchProperty = async () => {
+    if (!params.id) return;
+    
+    setLoading(true);
+    try {
+      const data = await apiClient.getPropertyById(params.id as string);
+      setProperty(data);
+
+      // Fetch similar properties
+      if (data) {
+        const similar = await apiClient.getProperties({
+          propertyType: data.propertyType,
+          neighborhood: data.location?.neighborhood,
+          limit: 3,
+        });
+        setSimilarProperties(similar.data.filter(p => p.id !== data.id));
+      }
+
+      // Check if favorited
+      if (isAuthenticated) {
+        try {
+          const favorites = await apiClient.getFavorites();
+          setIsFavorite(favorites.some(f => f.id === data.id));
+        } catch (error) {
+          // Ignore error
+        }
+      }
+    } catch (error) {
+      ErrorHandler.handle(error, 'Failed to load property');
+      router.push('/listings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContactOwner = async () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/properties/${params.id}`);
+      return;
+    }
+
+    if (isOwner) {
+      toast.error('You cannot message yourself');
+      return;
+    }
+
+    try {
+      const conversation = await apiClient.createConversation({
+        participantId: property!.ownerId,
+        propertyId: property!.id,
+      });
+      router.push(`/messages?conversation=${conversation.id}`);
+    } catch (error) {
+      ErrorHandler.handle(error, 'Failed to start conversation');
+    }
+  };
+
+  const handleScheduleViewing = () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/properties/${params.id}`);
+      return;
+    }
+
+    if (isOwner) {
+      toast.error('You cannot schedule a viewing for your own property');
+      return;
+    }
+
+    setShowAppointmentModal(true);
+  };
 
   const handleFavorite = async () => {
     if (!isAuthenticated) {
-      toast.error('Please login to save favorites');
-      router.push('/login');
+      router.push(`/login?redirect=/properties/${params.id}`);
       return;
     }
 
     try {
       if (isFavorite) {
-        await apiClient.removeFavorite(params.id as string);
-        setIsFavorite(false);
+        await apiClient.removeFavorite(property!.id);
         toast.success('Removed from favorites');
       } else {
-        await apiClient.addFavorite(params.id as string);
-        setIsFavorite(true);
+        await apiClient.addFavorite(property!.id);
         toast.success('Added to favorites');
       }
+      setIsFavorite(!isFavorite);
     } catch (error) {
       ErrorHandler.handle(error);
     }
   };
 
-  const handleInquiry = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please login to send inquiry');
-      router.push('/login');
-      return;
-    }
-
-    if (!inquiryForm.message.trim()) {
-      toast.error('Please enter a message');
-      return;
-    }
-
-    setSubmittingInquiry(true);
+  const handleShare = async () => {
+    const url = window.location.href;
     try {
-      await apiClient.createInquiry({
-        propertyId: params.id as string,
-        message: inquiryForm.message,
-        preferredViewingDate: inquiryForm.preferredViewingDate || undefined,
-      });
-
-      toast.success('Inquiry sent successfully!');
-      setShowInquiryModal(false);
-      setInquiryForm({ message: '', preferredViewingDate: '' });
+      if (navigator.share) {
+        await navigator.share({
+          title: property?.title,
+          text: property?.description,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard');
+      }
     } catch (error) {
-      ErrorHandler.handle(error, 'Failed to send inquiry');
-    } finally {
-      setSubmittingInquiry(false);
+      // User cancelled
     }
   };
 
-  const handlePaymentSuccess = () => {
-    toast.success('Payment successful! The property owner will contact you shortly.');
-    setShowPaymentModal(false);
+  const nextImage = () => {
+    if (property?.images) {
+      setSelectedImageIndex((prev) => 
+        prev === property.images!.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (property?.images) {
+      setSelectedImageIndex((prev) => 
+        prev === 0 ? property.images!.length - 1 : prev - 1
+      );
+    }
   };
 
   if (loading) {
@@ -164,115 +190,78 @@ export default function PropertyDetailPage() {
   }
 
   if (!property) {
-    return (
-      <div className="min-h-screen bg-neutral-bg py-xl">
-        <div className="container-custom">
-          <EmptyState
-            icon={MapPin}
-            title="Property Not Found"
-            description="The property you're looking for doesn't exist or has been removed"
-            actionLabel="Browse All Properties"
-            actionHref="/listings"
-          />
-        </div>
-      </div>
-    );
+    return null;
   }
-
-  const isOwner = user?.id === property.owner.id;
 
   return (
     <div className="min-h-screen bg-neutral-bg">
-      <div className="container-custom py-xl">
+      <div className="container-custom py-lg">
         {/* Back Button */}
         <Button
           variant="ghost"
-          leftIcon={<ArrowLeft />}
+          leftIcon={<ArrowLeft className="w-4 h-4" />}
           onClick={() => router.back()}
-          className="mb-lg"
+          className="mb-md"
         >
           Back
         </Button>
 
         {/* Image Gallery */}
-        <motion.div
-          className="mb-xl"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="relative h-96 rounded-lg overflow-hidden mb-md">
-            {property.images.length > 0 ? (
-              <>
-                <Image
-                  src={property.images[selectedImageIndex].url}
-                  alt={property.title}
-                  fill
-                  className="object-cover"
-                />
-                {property.images.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => setSelectedImageIndex(prev => 
-                        prev === 0 ? property.images.length - 1 : prev - 1
-                      )}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                    <button
-                      onClick={() => setSelectedImageIndex(prev => 
-                        prev === property.images.length - 1 ? 0 : prev + 1
-                      )}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                  </>
-                )}
-              </>
-            ) : (
-              <div className="w-full h-full bg-neutral-border flex items-center justify-center">
-                <MapPin className="w-20 h-20 text-neutral-text-tertiary" />
-              </div>
-            )}
-          </div>
-
-          {/* Thumbnail Grid */}
-          {property.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-md">
-              {property.images.slice(0, 4).map((image, index) => (
-                <button
-                  key={image.id}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedImageIndex === index
-                      ? 'border-brand-primary'
-                      : 'border-transparent hover:border-neutral-border'
-                  }`}
-                >
-                  <Image
-                    src={image.url}
-                    alt={`${property.title} - ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                </button>
-              ))}
+        <div className="relative h-[400px] md:h-[600px] rounded-lg overflow-hidden mb-lg">
+          {property.images && property.images.length > 0 ? (
+            <>
+              <Image
+                src={property.images[selectedImageIndex].url}
+                alt={property.title}
+                fill
+                className="object-cover"
+                priority
+              />
+              {property.images.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-colors"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-colors"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                    {property.images.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImageIndex(index)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          index === selectedImageIndex ? 'bg-white' : 'bg-white/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-full bg-neutral-bg-secondary flex items-center justify-center">
+              <Building2 className="w-16 h-16 text-neutral-text-tertiary" />
             </div>
           )}
-        </motion.div>
+        </div>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-xl">
-            {/* Title & Location */}
-            <div>
+          <div className="lg:col-span-2 space-y-lg">
+            {/* Header */}
+            <Card>
               <div className="flex items-start justify-between mb-md">
-                <div className="flex-1">
-                  <div className="flex items-center gap-md mb-2">
+                <div>
+                  <div className="flex items-center gap-sm mb-2">
                     <Badge variant={property.status === 'AVAILABLE' ? 'success' : 'secondary'}>
-                      {property.status}
+                      {PROPERTY_STATUS_LABELS[property.status]}
                     </Badge>
                     {property.verified && (
                       <Badge variant="info">
@@ -292,12 +281,17 @@ export default function PropertyDetailPage() {
                     variant="ghost"
                     size="md"
                     onClick={handleFavorite}
-                    leftIcon={<Heart className={isFavorite ? 'fill-current text-status-error' : ''} />}
+                    leftIcon={
+                      <Heart 
+                        className={isFavorite ? 'fill-current text-status-error' : ''} 
+                      />
+                    }
                   />
                   <Button
                     variant="ghost"
                     size="md"
                     leftIcon={<Share2 />}
+                    onClick={handleShare}
                   />
                 </div>
               </div>
@@ -308,7 +302,7 @@ export default function PropertyDetailPage() {
                 </span>
                 <span className="text-body text-neutral-text-secondary">/ month</span>
               </div>
-            </div>
+            </Card>
 
             {/* Description */}
             <Card>
@@ -351,7 +345,9 @@ export default function PropertyDetailPage() {
                   {property.amenities.map((amenity, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-status-success" />
-                      <span className="text-body">{amenity.name}</span>
+                      <span className="text-body">
+                        {typeof amenity === 'string' ? amenity : amenity.name}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -360,18 +356,8 @@ export default function PropertyDetailPage() {
 
             {/* Location Map */}
             <Card>
-              <div className="flex items-center justify-between mb-md">
-                <h2 className="text-h2">Location</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<MapIcon />}
-                  onClick={() => setShowMapModal(true)}
-                >
-                  View Full Map
-                </Button>
-              </div>
-              <div className="h-64 rounded-lg overflow-hidden">
+              <h2 className="text-h2 mb-md">Location</h2>
+              <div className="h-64 rounded-lg overflow-hidden mb-md">
                 <PropertyMap
                   properties={[property]}
                   center={{
@@ -384,6 +370,9 @@ export default function PropertyDetailPage() {
                   height="256px"
                 />
               </div>
+              <p className="text-body text-neutral-text-secondary">
+                {property.location.neighborhood}, Nairobi
+              </p>
             </Card>
           </div>
 
@@ -392,62 +381,63 @@ export default function PropertyDetailPage() {
             {/* Action Card */}
             <Card>
               <h3 className="text-h3 mb-md">
-                {isOwner ? 'Your Property' : 'Contact Property Owner'}
+                {isOwner ? 'Your Property' : 'Interested?'}
               </h3>
               
               {isOwner ? (
                 <div className="space-y-md">
                   <Button
                     variant="primary"
+                    size="lg"
                     fullWidth
-                    href={`/dashboard/properties/${property.id}/edit`}
+                    onClick={() => router.push(`/dashboard/properties/${property.id}/edit`)}
                   >
                     Edit Property
                   </Button>
                   <Button
-                    variant="primary"
+                    variant="secondary"
+                    size="lg"
                     fullWidth
-                    href="/dashboard/inquiries"
+                    onClick={() => router.push('/dashboard/inquiries')}
                   >
                     View Inquiries
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-md">
-                  {property.status === 'AVAILABLE' && (
-                    <>
-                      <Button
-                        variant="primary"
-                        fullWidth
-                        leftIcon={<CreditCard className="w-5 h-5" />}
-                        onClick={() => setShowPaymentModal(true)}
-                      >
-                        Pay Deposit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        leftIcon={<Mail className="w-5 h-5" />}
-                        onClick={() => setShowInquiryModal(true)}
-                      >
-                        Send Inquiry
-                      </Button>
-                    </>
-                  )}
                   <Button
                     variant="primary"
+                    size="lg"
+                    fullWidth
+                    leftIcon={<MessageSquare className="w-5 h-5" />}
+                    onClick={handleContactOwner}
+                  >
+                    Contact Owner
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    leftIcon={<Calendar className="w-5 h-5" />}
+                    onClick={handleScheduleViewing}
+                  >
+                    Schedule Viewing
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="md"
                     fullWidth
                     leftIcon={<Phone className="w-5 h-5" />}
                     onClick={() => setShowContactModal(true)}
                   >
-                    Contact Owner
+                    Show Contact Info
                   </Button>
                 </div>
               )}
             </Card>
 
             {/* Owner Card */}
-            {!isOwner && (
+            {!isOwner && property.owner && (
               <Card>
                 <h3 className="text-h3 mb-md">Property Owner</h3>
                 <div className="flex items-center gap-md">
@@ -481,6 +471,7 @@ export default function PropertyDetailPage() {
                   key={prop.id}
                   property={prop}
                   onClick={() => router.push(`/properties/${prop.id}`)}
+                  onContact={() => {}}
                 />
               ))}
             </div>
@@ -488,85 +479,36 @@ export default function PropertyDetailPage() {
         )}
       </div>
 
-      {/* Inquiry Modal */}
-      <Modal isOpen={showInquiryModal} onClose={() => setShowInquiryModal(false)}>
-        <div className="p-lg">
-          <h3 className="text-h3 mb-md">Send Inquiry</h3>
-          <div className="space-y-md">
-            <Textarea
-              label="Message"
-              placeholder="I'm interested in this property..."
-              value={inquiryForm.message}
-              onChange={(e) => setInquiryForm({ ...inquiryForm, message: e.target.value })}
-              rows={5}
-            />
-            <Input
-              type="date"
-              label="Preferred Viewing Date (Optional)"
-              value={inquiryForm.preferredViewingDate}
-              onChange={(e) => setInquiryForm({ ...inquiryForm, preferredViewingDate: e.target.value })}
-            />
-            <div className="flex gap-md">
-              <Button
-                variant="outline"
-                fullWidth
-                onClick={() => setShowInquiryModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                fullWidth
-                onClick={handleInquiry}
-                isLoading={submittingInquiry}
-              >
-                Send Inquiry
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+      {/* Appointment Modal */}
+      {property && (
+        <AppointmentModal
+          isOpen={showAppointmentModal}
+          onClose={() => setShowAppointmentModal(false)}
+          property={property}
+          onSuccess={() => {
+            toast.success('Viewing request sent!');
+            router.push('/appointments');
+          }}
+        />
+      )}
 
       {/* Contact Modal */}
-      <Modal isOpen={showContactModal} onClose={() => setShowContactModal(false)}>
-        <div className="p-lg">
-          <h3 className="text-h3 mb-md">Contact Information</h3>
-          <div className="space-y-md">
-            <div className="flex items-center gap-md">
-              <Mail className="w-5 h-5 text-neutral-text-secondary" />
-              <span>{property.owner.email}</span>
-            </div>
-            {property.owner.phone && (
-              <div className="flex items-center gap-md">
-                <Phone className="w-5 h-5 text-neutral-text-secondary" />
-                <span>{property.owner.phone}</span>
-              </div>
-            )}
+      <Modal 
+        isOpen={showContactModal} 
+        onClose={() => setShowContactModal(false)}
+        title="Contact Information"
+      >
+        <div className="space-y-md">
+          <div className="flex items-center gap-md">
+            <Mail className="w-5 h-5 text-neutral-text-secondary" />
+            <span>{property.owner?.email}</span>
           </div>
-        </div>
-      </Modal>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        property={property}
-        paymentType="DEPOSIT"
-        onSuccess={handlePaymentSuccess}
-      />
-
-      {/* Full Map Modal */}
-      <Modal isOpen={showMapModal} onClose={() => setShowMapModal(false)} size="full">
-        <div className="h-screen">
-          <PropertyMap
-            properties={[property]}
-            center={{
-              lat: property.location.lat,
-              lng: property.location.lng,
-            }}
-            zoom={15}
-            height="100vh"
-          />
+          {property.owner?.phone && (
+            <div className="flex items-center gap-md">
+              <Phone className="w-5 h-5 text-neutral-text-secondary" />
+              <span>{property.owner.phone}</span>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

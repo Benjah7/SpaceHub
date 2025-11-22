@@ -16,6 +16,7 @@ import type {
   Message,
 } from '@/types';
 import type { BackendSearchCriteria } from '@/types/backend';
+import { useAuthStore } from '../store/auth-store';
 
 /**
  * Hook state interface
@@ -1012,10 +1013,16 @@ export function useSendMessage(conversationId: string | null) {
  * Hook to get unread message count
  */
 export function useUnreadMessageCount() {
+  const { isAuthenticated } = useAuthStore();
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchCount = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const count = await apiClient.getUnreadMessageCount();
       setCount(count);
@@ -1024,20 +1031,17 @@ export function useUnreadMessageCount() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchCount();
-    // Poll every 30 seconds
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchCount]);
+    if (!isAuthenticated) return;
 
-  return {
-    count,
-    loading,
-    refetch: fetchCount,
-  };
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, [fetchCount, isAuthenticated]);
+
+  return { count, loading, refetch: fetchCount };
 }
 
 // ============================================
@@ -1125,10 +1129,15 @@ export function useAppointment(id: string | null) {
  * Hook to get upcoming appointments count
  */
 export function useUpcomingAppointmentsCount() {
+  const { isAuthenticated } = useAuthStore();
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchCount = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     try {
       const count = await apiClient.getUpcomingAppointmentsCount();
       setCount(count);
@@ -1137,16 +1146,16 @@ export function useUpcomingAppointmentsCount() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     fetchCount();
-  }, [fetchCount]);
+    // Changed from immediate polling to 60 seconds
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, [fetchCount, isAuthenticated]);
 
-  return {
-    count,
-    loading,
-    refetch: fetchCount,
-  };
+  return { count, loading, refetch: fetchCount };
 }
-
