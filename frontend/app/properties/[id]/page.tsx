@@ -27,6 +27,7 @@ import { AppointmentModal } from '@/components/appointments/AppointmentModal';
 import { PropertyCard } from '@/components/property/PropertyCard';
 import { PropertyDetailSkeleton } from '@/components/ui/Skeleton';
 import { PropertyMap } from '@/components/maps/PropertyMap';
+import { PropertyDocuments } from '@/components/documents/PropertyDocuments';
 import { apiClient } from '@/lib/api-client';
 import { ErrorHandler } from '@/lib/utils/error-handler';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -39,7 +40,7 @@ export default function PropertyDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
-  
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -56,7 +57,7 @@ export default function PropertyDetailPage() {
 
   const fetchProperty = async () => {
     if (!params.id) return;
-    
+
     setLoading(true);
     try {
       const data = await apiClient.getPropertyById(params.id as string);
@@ -165,7 +166,7 @@ export default function PropertyDetailPage() {
 
   const nextImage = () => {
     if (property?.images) {
-      setSelectedImageIndex((prev) => 
+      setSelectedImageIndex((prev) =>
         prev === property.images!.length - 1 ? 0 : prev + 1
       );
     }
@@ -173,7 +174,7 @@ export default function PropertyDetailPage() {
 
   const prevImage = () => {
     if (property?.images) {
-      setSelectedImageIndex((prev) => 
+      setSelectedImageIndex((prev) =>
         prev === 0 ? property.images!.length - 1 : prev - 1
       );
     }
@@ -236,9 +237,8 @@ export default function PropertyDetailPage() {
                       <button
                         key={index}
                         onClick={() => setSelectedImageIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-colors ${
-                          index === selectedImageIndex ? 'bg-white' : 'bg-white/50'
-                        }`}
+                        className={`w-2 h-2 rounded-full transition-colors ${index === selectedImageIndex ? 'bg-white' : 'bg-white/50'
+                          }`}
                       />
                     ))}
                   </div>
@@ -282,8 +282,8 @@ export default function PropertyDetailPage() {
                     size="md"
                     onClick={handleFavorite}
                     leftIcon={
-                      <Heart 
-                        className={isFavorite ? 'fill-current text-status-error' : ''} 
+                      <Heart
+                        className={isFavorite ? 'fill-current text-status-error' : ''}
                       />
                     }
                   />
@@ -354,6 +354,14 @@ export default function PropertyDetailPage() {
               </Card>
             )}
 
+            {/* ========== DOCUMENTS SECTION ========== */}
+            <section className="mb-8">
+              <PropertyDocuments
+                propertyId={property.id}
+                isOwner={isOwner}
+              />
+            </section>
+
             {/* Location Map */}
             <Card>
               <h2 className="text-h2 mb-md">Location</h2>
@@ -383,7 +391,7 @@ export default function PropertyDetailPage() {
               <h3 className="text-h3 mb-md">
                 {isOwner ? 'Your Property' : 'Interested?'}
               </h3>
-              
+
               {isOwner ? (
                 <div className="space-y-md">
                   <Button
@@ -471,7 +479,7 @@ export default function PropertyDetailPage() {
                   key={prop.id}
                   property={prop}
                   onClick={() => router.push(`/properties/${prop.id}`)}
-                  onContact={() => {}}
+                  onContact={() => { }}
                 />
               ))}
             </div>
@@ -493,8 +501,8 @@ export default function PropertyDetailPage() {
       )}
 
       {/* Contact Modal */}
-      <Modal 
-        isOpen={showContactModal} 
+      <Modal
+        isOpen={showContactModal}
         onClose={() => setShowContactModal(false)}
         title="Contact Information"
       >

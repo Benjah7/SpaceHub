@@ -36,6 +36,7 @@ import {
   PropertyStatus,
 } from '@/types';
 import toast from 'react-hot-toast';
+import { PropertyDocuments } from '@/components/documents/PropertyDocuments';
 
 // Form validation schema
 const updatePropertySchema = z.object({

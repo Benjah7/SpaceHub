@@ -28,10 +28,13 @@ export const Header: React.FC = () => {
       ? [
         { name: 'Messages', href: '/messages', badge: unreadMessages || 0 },
         { name: 'Appointments', href: '/appointments', badge: upcomingAppointments || 0 },
+        { name: 'My Searches', href: '/saved-searches' },
       ]
       : []),
     ...(isAuthenticated && user?.role === 'OWNER'
-      ? [{ name: t('nav.dashboard'), href: '/dashboard' }]
+      ? [
+        { name: t('nav.dashboard'), href: '/dashboard' }
+      ]
       : []
     ),
   ];

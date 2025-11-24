@@ -15,6 +15,8 @@ import type {
   Conversation,
   Appointment,
   AppointmentStatus,
+  SearchCriteria,
+  PaginationMeta,
 
 } from '@/types';
 import type {
@@ -764,7 +766,7 @@ class ApiClient {
    */
   async createSavedSearch(data: {
     name: string;
-    criteria: BackendSearchCriteria;
+    criteria: SearchCriteria;
   }): Promise<SavedSearch> {
     const response = await this.post<BackendApiResponse<any>>(
       '/saved-searches',
@@ -806,7 +808,7 @@ class ApiClient {
    */
   async updateSavedSearch(
     searchId: string,
-    data: { name?: string; criteria?: BackendSearchCriteria }
+    data: { name?: string; criteria?: SearchCriteria }
   ): Promise<SavedSearch> {
     const response = await this.put<BackendApiResponse<any>>(
       `/saved-searches/${searchId}`,
@@ -1066,7 +1068,7 @@ class ApiClient {
     await this.delete(`/documents/${documentId}`);
   }
 
-// ============================================
+  // ============================================
   // MESSAGING ENDPOINTS
   // ============================================
 
@@ -1212,6 +1214,98 @@ class ApiClient {
       '/appointments/upcoming/count'
     );
     return response.success && response.data ? response.data.count : 0;
+  }
+
+  /**
+ * Search properties by map bounds
+ */
+  async searchPropertiesByBounds(
+    minLat: number,
+    minLng: number,
+    maxLat: number,
+    maxLng: number,
+    filters?: {
+      propertyType?: string;
+      minRent?: number;
+      maxRent?: number;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{ properties: Property[]; pagination: PaginationMeta }> {
+    const params: any = {
+      minLat,
+      minLng,
+      maxLat,
+      maxLng,
+      ...filters,
+    };
+
+    const response = await this.get<BackendPaginatedResponse<BackendProperty>>(
+      '/search/bounds',
+      { params }
+    );
+
+    if (response.success && response.data) {
+      return {
+        properties: response.data.map(PropertyTransformer.toFrontend),
+        pagination: response.pagination,
+      };
+    }
+
+    return {
+      properties: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+
+  /**
+   * Search properties by radius
+   */
+  async searchPropertiesByRadius(
+    latitude: number,
+    longitude: number,
+    radius: number,
+    filters?: {
+      propertyType?: string;
+      minRent?: number;
+      maxRent?: number;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{ properties: Property[]; pagination: PaginationMeta }> {
+    const params: any = {
+      lat: latitude,
+      lng: longitude,
+      radius,
+      ...filters,
+    };
+
+    const response = await this.get<BackendPaginatedResponse<BackendProperty>>(
+      '/search/radius',
+      { params }
+    );
+
+    if (response.success && response.data) {
+      return {
+        properties: response.data.map(PropertyTransformer.toFrontend),
+        pagination: response.pagination,
+      };
+    }
+
+    return {
+      properties: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    };
   }
 }
 

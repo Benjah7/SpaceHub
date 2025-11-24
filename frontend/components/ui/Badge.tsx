@@ -9,6 +9,7 @@ type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default' | 'seco
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
   animated?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const badgeVariants: Record<BadgeVariant, string> = {
@@ -24,6 +25,7 @@ const badgeVariants: Record<BadgeVariant, string> = {
 export const Badge: React.FC<BadgeProps> = ({
   variant = 'default',
   animated = false,
+  size,
   className,
   children,
   ...props
@@ -32,7 +34,11 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <BadgeComponent
-      className={cn('badge', badgeVariants[variant], className)}
+      className={cn('badge', badgeVariants[variant], className, {
+        'badge-sm': size === 'sm',
+        'badge-md': size === 'md',
+        'badge-lg': size === 'lg',
+      })}
       {...(animated && {
         initial: { scale: 0, opacity: 0 },
         animate: { scale: 1, opacity: 1 },

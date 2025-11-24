@@ -841,3 +841,70 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
+
+
+export enum DocumentType {
+  LEASE_AGREEMENT = 'LEASE_AGREEMENT',
+  TITLE_DEED = 'TITLE_DEED',
+  BUSINESS_PERMIT = 'BUSINESS_PERMIT',
+  ID_DOCUMENT = 'ID_DOCUMENT',
+  TAX_COMPLIANCE = 'TAX_COMPLIANCE',
+  OTHER = 'OTHER',
+}
+
+export interface Document {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  url: string;
+  documentType: DocumentType;
+  propertyId?: string;
+  property?: {
+    id: string;
+    propertyName: string;
+    address: string;
+  };
+  userId: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  sharedWith?: string[]; // Array of user IDs
+  uploadedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentShare {
+  id: string;
+  documentId: string;
+  sharedBy: string;
+  sharedWith: string;
+  propertyId?: string;
+  permissions: 'VIEW' | 'DOWNLOAD' | 'FULL';
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  [DocumentType.LEASE_AGREEMENT]: 'Lease Agreement',
+  [DocumentType.TITLE_DEED]: 'Title Deed',
+  [DocumentType.BUSINESS_PERMIT]: 'Business Permit',
+  [DocumentType.ID_DOCUMENT]: 'ID Document',
+  [DocumentType.TAX_COMPLIANCE]: 'Tax Compliance Certificate',
+  [DocumentType.OTHER]: 'Other Document',
+};
+
+export const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
+
+
+
+

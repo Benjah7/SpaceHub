@@ -19,6 +19,7 @@ import type { Property, SearchFilters } from '@/types';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { useAuthStore } from '@/lib/store/auth-store';
 import toast from 'react-hot-toast';
+import { ComparisonFloatingButton } from '@/components/property/ComparisonFloatingButton';
 
 type ViewMode = 'grid' | 'list';
 
@@ -280,6 +281,7 @@ export default function ListingsPage() {
           />
         )}
       </div>
+      <ComparisonFloatingButton />
     </div>
   );
 }
