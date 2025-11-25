@@ -6,28 +6,24 @@ import { DocumentUploadModal } from './DocumentUploadModal';
 import { Button } from '@/components/ui/Button';
 import { Plus, FileText } from 'lucide-react';
 import { useDocuments } from '@/lib/hooks/useDocuments';
-import type { Document, DocumentType } from '@/types';
+import { Document, DocumentType } from '@/types';
 
 interface PropertyDocumentsProps {
     propertyId: string;
     isOwner: boolean;
 }
 
-// ===== ADD THIS =====
-// Documents that should ONLY be visible to owner/admin (verification docs)
-const VERIFICATION_DOC_TYPES = [
-    'TITLE_DEED',
-    'BUSINESS_PERMIT',
-    'ID_DOCUMENT',
-    'TAX_COMPLIANCE',
-] as DocumentType[];
+const VERIFICATION_DOC_TYPES: DocumentType[] = [
+    DocumentType.TITLE_DEED,
+    DocumentType.BUSINESS_PERMIT,
+    DocumentType.ID_DOCUMENT,
+    DocumentType.TAX_COMPLIANCE,
+];
 
-// Documents that can be shared publicly (information docs)
-const PUBLIC_DOC_TYPES = [
-    'LEASE_AGREEMENT',
-    'OTHER',
-] as DocumentType[];
-// ====================
+const PUBLIC_DOC_TYPES: DocumentType[] = [
+    DocumentType.LEASE_AGREEMENT,
+    DocumentType.OTHER,
+];
 
 export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
     propertyId,
@@ -36,20 +32,21 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
     const { documents, loading, uploadDocument, deleteDocument } = useDocuments(propertyId);
     const [showUploadModal, setShowUploadModal] = useState(false);
 
-    // ===== ADD THIS =====
-    // Filter documents based on who's viewing
-    const visibleDocuments = documents.filter(doc => {
-        // Owners see all their documents
+    const visibleDocuments = documents.filter((doc) => {
         if (isOwner) return true;
+        return PUBLIC_DOC_TYPES.includes(doc.documentType as DocumentType);
+    }) as Document[];
 
-        // Non-owners only see public document types
-        return PUBLIC_DOC_TYPES.includes(doc.documentType);
-    });
-    // ====================
 
     const handleUpload = async (file: File, documentType: DocumentType) => {
         await uploadDocument(file, documentType, propertyId);
         setShowUploadModal(false);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this document?')) {
+            await deleteDocument(id);
+        }
     };
 
     if (loading) {
@@ -113,8 +110,7 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
                         <DocumentCard
                             key={document.id}
                             document={document}
-                            onDelete={isOwner ? () => deleteDocument(document.id) : undefined}
-                            showDeleteButton={isOwner}
+                            onDelete={handleDelete}
                         />
                     ))}
                 </div>

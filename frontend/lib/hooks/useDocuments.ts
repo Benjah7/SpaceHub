@@ -22,29 +22,33 @@ export interface Document {
 interface UseDocumentsReturn {
     documents: Document[];
     loading: boolean;
-    uploading: boolean;
-    uploadDocument: (file: File, documentType: string, propertyId?: string) => Promise<Document | null>;
-    deleteDocument: (id: string) => Promise<boolean>;
-    getPropertyDocuments: (propertyId: string) => Promise<Document[]>;
-    refresh: () => Promise<void>;
+    error: Error | null;
+    uploadDocument: (file: File, documentType: string, propertyId?: string) => Promise<void>;
+    deleteDocument: (id: string) => Promise<void>;
+    refetch: () => Promise<void>;
 }
 
-export const useDocuments = (): UseDocumentsReturn => {
+export const useDocuments = (propertyId?: string): UseDocumentsReturn => {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchDocuments = useCallback(async () => {
+        setLoading(true);
+        setError(null);
         try {
-            setLoading(true);
-            const data = await apiClient.getMyDocuments();
+            const data = propertyId
+                ? await apiClient.getPropertyDocuments(propertyId)
+                : await apiClient.getMyDocuments();
             setDocuments(data);
-        } catch (error) {
-            ErrorHandler.handle(error as Error);
+        } catch (err) {
+            const error = err as Error;
+            setError(error);
+            ErrorHandler.handle(error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [propertyId]);
 
     useEffect(() => {
         fetchDocuments();
@@ -54,30 +58,27 @@ export const useDocuments = (): UseDocumentsReturn => {
         file: File,
         documentType: string,
         propertyId?: string
-    ): Promise<Document | null> => {
+    ): Promise<void> => {
         try {
-            setUploading(true);
-            const document = await apiClient.uploadDocument(file, documentType, propertyId);
-            setDocuments(prev => [document, ...prev]);
+            await apiClient.uploadDocument(file, documentType, propertyId);
             toast.success('Document uploaded successfully');
-            return document;
-        } catch (error) {
-            ErrorHandler.handle(error as Error);
-            return null;
-        } finally {
-            setUploading(false);
+            await fetchDocuments();
+        } catch (err) {
+            const error = err as Error;
+            ErrorHandler.handle(error);
+            throw error;
         }
     };
 
-    const deleteDocument = async (id: string): Promise<boolean> => {
+    const deleteDocument = async (id: string): Promise<void> => {
         try {
             await apiClient.deleteDocument(id);
-            setDocuments(prev => prev.filter(doc => doc.id !== id));
             toast.success('Document deleted successfully');
-            return true;
-        } catch (error) {
-            ErrorHandler.handle(error as Error);
-            return false;
+            await fetchDocuments();
+        } catch (err) {
+            const error = err as Error;
+            ErrorHandler.handle(error);
+            throw error;
         }
     };
 
@@ -94,10 +95,9 @@ export const useDocuments = (): UseDocumentsReturn => {
     return {
         documents,
         loading,
-        uploading,
+        error,
         uploadDocument,
         deleteDocument,
-        getPropertyDocuments,
-        refresh: fetchDocuments,
+        refetch: fetchDocuments,
     };
 };

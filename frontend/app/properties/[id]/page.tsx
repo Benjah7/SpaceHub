@@ -373,8 +373,7 @@ export default function PropertyDetailPage() {
                     lng: property.location.lng,
                   }}
                   zoom={15}
-                  showSearch={false}
-                  showRadius={false}
+                  showRadiusControl={true}
                   height="256px"
                 />
               </div>

@@ -501,15 +501,15 @@ export default function EditPropertyPage() {
                       type="button"
                       onClick={() => handleAmenityToggle(amenity.id)}
                       className={`p-md border-2 rounded-lg transition-all ${selectedAmenities.includes(amenity.id)
-                          ? 'border-brand-primary bg-brand-primary/10'
-                          : 'border-neutral-border hover:border-brand-primary/50'
+                        ? 'border-brand-primary bg-brand-primary/10'
+                        : 'border-neutral-border hover:border-brand-primary/50'
                         }`}
                     >
                       <div className="flex items-center gap-2">
                         <Check
                           className={`w-5 h-5 ${selectedAmenities.includes(amenity.id)
-                              ? 'text-brand-primary'
-                              : 'text-transparent'
+                            ? 'text-brand-primary'
+                            : 'text-transparent'
                             }`}
                         />
                         <span className="text-small font-medium">{amenity.name}</span>
@@ -520,6 +520,14 @@ export default function EditPropertyPage() {
               </div>
             </Card>
           </motion.div>
+
+          {/* Documents Section */}
+          <div className="bg-white rounded-xl border-2 border-neutral-border p-6 mt-6">
+            <PropertyDocuments
+              propertyId={propertyId}
+              isOwner={true}
+            />
+          </div>
 
           {/* Images */}
           <motion.div

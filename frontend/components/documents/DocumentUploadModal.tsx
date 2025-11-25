@@ -5,6 +5,7 @@ import { Upload, FileText, X, AlertCircle } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { DocumentType, DOCUMENT_TYPE_LABELS, ALLOWED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE } from '@/types';
 
 const DOCUMENT_TYPES = [
     { value: 'LEASE_AGREEMENT', label: 'Lease Agreement' },
@@ -21,21 +22,34 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 interface DocumentUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onUpload: (file: File, documentType: string, propertyId?: string) => Promise<void>;
-    propertyId?: string;
+    onUpload: (file: File, documentType: DocumentType) => Promise<void>;
+    allowedTypes?: DocumentType[];
+    title?: string;
+    description?: string;
 }
 
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     isOpen,
     onClose,
     onUpload,
-    propertyId,
+    allowedTypes,
+    title = 'Upload Document',
+    description,
 }) => {
     const [file, setFile] = useState<File | null>(null);
-    const [documentType, setDocumentType] = useState('LEASE_AGREEMENT');
+    const [documentType, setDocumentType] = useState<DocumentType>(DocumentType.LEASE_AGREEMENT);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const documentTypeOptions = Object.entries(DOCUMENT_TYPE_LABELS)
+        .filter(([value]) => {
+            if (allowedTypes && allowedTypes.length > 0) {
+                return allowedTypes.includes(value as DocumentType);
+            }
+            return true;
+        })
+        .map(([value, label]) => ({ value, label }));
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -43,13 +57,13 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
         if (!selectedFile) return;
 
-        if (!ALLOWED_TYPES.includes(selectedFile.type)) {
-            setError('Only PDF and Word documents are allowed');
+        if (!ALLOWED_DOCUMENT_TYPES.includes(selectedFile.type)) {
+            setError('Only PDF and Word documents (.pdf, .doc, .docx) are allowed');
             return;
         }
 
-        if (selectedFile.size > MAX_SIZE) {
-            setError('File size must be less than 10MB');
+        if (selectedFile.size > MAX_DOCUMENT_SIZE) {
+            setError(`File size must be less than ${MAX_DOCUMENT_SIZE / (1024 * 1024)}MB`);
             return;
         }
 
@@ -58,26 +72,32 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file) return;
+        if (!file) {
+            setError('Please select a file');
+            return;
+        }
 
         setUploading(true);
+        setError(null);
+
         try {
-            await onUpload(file, documentType, propertyId);
+            await onUpload(file, documentType);
             handleClose();
         } catch (err) {
-            setError('Failed to upload document');
+            setError((err as Error).message || 'Failed to upload document');
         } finally {
             setUploading(false);
         }
     };
 
     const handleClose = () => {
-        setFile(null);
-        setDocumentType('LEASE_AGREEMENT');
-        setError(null);
-        onClose();
+        if (!uploading) {
+            setFile(null);
+            setDocumentType(DocumentType.LEASE_AGREEMENT);
+            setError(null);
+            onClose();
+        }
     };
-
     const formatFileSize = (bytes: number): string => {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -85,15 +105,20 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Upload Document">
+        <Modal isOpen={isOpen} onClose={handleClose} title={title} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <Select
                     label="Document Type"
                     value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value)}
-                    options={DOCUMENT_TYPES}
+                    onChange={(e) => setDocumentType(e.target.value as DocumentType)}
+                   options={documentTypeOptions}
                     required
                 />
+                {description && (
+                    <p className="text-sm text-neutral-secondary mb-4">
+                        {description}
+                    </p>
+                )}
 
                 <div>
                     <label className="block text-sm font-medium text-neutral-primary mb-2">
@@ -133,7 +158,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                             <>
                                 <Upload className="w-12 h-12 mx-auto text-neutral-tertiary mb-2" />
                                 <p className="text-neutral-primary mb-1">Click to upload or drag and drop</p>
-                                <p className="text-sm text-neutral-secondary">PDF or Word (max 10MB)</p>
+                                <p className="text-sm text-neutral-secondary">PDF or Word (max {MAX_DOCUMENT_SIZE / (1024 * 1024)}MB)</p>
                             </>
                         )}
                     </div>
