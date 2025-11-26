@@ -57,4 +57,20 @@ export class SMSService {
         const message = `${newPropertiesCount} new properties match your saved search on Space Hub. Visit app to view.`;
         return this.sendSMS(to, message);
     }
+    /**
+ * Send verification approval SMS
+ */
+static async sendVerificationApproval(phone: string, name: string): Promise<void> {
+    const message = `Congratulations ${name}! Your Space Hub account has been verified. Your listings will now display the verified badge.`;
+    return this.sendSMS(phone, message);
+}
+
+/**
+ * Send verification rejection SMS
+ */
+static async sendVerificationRejection(phone: string, name: string): Promise<void> {
+    const message = `Hello ${name}, your Space Hub verification needs updates. Please check your email for details and resubmit.`;
+
+    return this.sendSMS(phone, message);
+}
 }

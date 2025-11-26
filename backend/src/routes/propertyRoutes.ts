@@ -15,6 +15,7 @@ import { validateCreateProperty, validateUpdateProperty } from '../middleware/va
 import { uploadPropertyImages } from '../middleware/upload';
 import { cache, invalidateCache } from '../middleware/cache';
 import { CACHE_DURATIONS } from '../utils/constants';
+import { getPropertyInquiries } from '../controllers/inquiryController';
 
 const router: Router = Router();
 
@@ -77,6 +78,13 @@ router.put(
     authenticate,
     authorize('OWNER', 'ADMIN'),
     setPrimaryImage
+);
+
+router.get(
+    '/:propertyId/inquiries',
+    authenticate,
+    authorize('OWNER', 'ADMIN'),
+    getPropertyInquiries
 );
 
 export default router;

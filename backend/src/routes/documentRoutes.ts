@@ -5,7 +5,7 @@ import {
     getPropertyDocuments,
     deleteDocument
 } from '../controllers/documentController';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { uploadDocument as uploadMiddleware } from '../middleware/upload';
 
 const router: Router = Router();
@@ -15,7 +15,7 @@ router.use(authenticate);
 
 router.post('/', uploadMiddleware, uploadDocument);
 router.get('/', getDocuments);
-router.get('/property/:propertyId', authorize('OWNER', 'ADMIN'), getPropertyDocuments);
+router.get('/property/:propertyId', getPropertyDocuments);
 router.delete('/:id', deleteDocument);
 
 export default router;

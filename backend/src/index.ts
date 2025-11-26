@@ -21,6 +21,7 @@ import documentRoutes from './routes/documentRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import messageRoutes from './routes/messageRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
+import verificationRoutes from './routes/verificationRoutes';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -79,6 +80,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/verification', verificationRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {

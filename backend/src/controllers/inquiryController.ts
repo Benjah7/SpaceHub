@@ -231,3 +231,45 @@ export const deleteInquiry = asyncHandler(async (req: Request, res: Response) =>
         ApiResponse.success(null, 'Inquiry deleted successfully')
     );
 });
+
+/**
+ * Get inquiries for a property
+ * GET /api/properties/:propertyId/inquiries (called via property routes)
+ */
+export const getPropertyInquiries = asyncHandler(async (req: Request, res: Response) => {
+    const propertyId = parseInt(req.params.propertyId);
+
+    // Verify property exists
+    const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { ownerId: true }
+    });
+
+    if (!property) {
+        throw new ApiError(404, 'Property not found');
+    }
+
+    // Only owner can see property inquiries
+    if (property.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        throw new ApiError(403, 'Not authorized');
+    }
+
+    const inquiries = await prisma.inquiry.findMany({
+        where: { propertyId },
+        include: {
+            tenant: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(
+        ApiResponse.success(inquiries, 'Property inquiries retrieved successfully')
+    );
+});

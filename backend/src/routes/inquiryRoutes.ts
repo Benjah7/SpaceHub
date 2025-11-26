@@ -20,4 +20,5 @@ router.get('/received', authorize('OWNER', 'ADMIN'), getReceivedInquiries);
 router.put('/:id/respond', authorize('OWNER', 'ADMIN'), respondToInquiry);
 router.delete('/:id', deleteInquiry);
 
+
 export default router;

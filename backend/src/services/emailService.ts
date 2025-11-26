@@ -127,4 +127,83 @@ export class EmailService {
             console.error('Email send error:', error);
         }
     }
+
+/**
+ * Send verification approval email
+ */
+    static async sendVerificationApproval(email: string, name: string): Promise<void> {
+        const msg = {
+            to: email,
+            from: process.env.SENDGRID_FROM_EMAIL!,
+            subject: '✓ Your Space Hub Account is Verified',
+            html: `
+            <h2>Congratulations, ${name}!</h2>
+            <p>Your Space Hub account has been verified.</p>
+            <p><strong>Benefits of verification:</strong></p>
+            <ul>
+                <li>✓ Verified badge on your listings</li>
+                <li>✓ Increased tenant trust</li>
+                <li>✓ Higher visibility in search results</li>
+                <li>✓ Priority support</li>
+            </ul>
+            <p>Your properties will now display the verified badge to potential tenants.</p>
+            <p>
+                <a href="${process.env.FRONTEND_URL}/dashboard" 
+                   style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Go to Dashboard
+                </a>
+            </p>
+        `
+        };
+
+        try {
+            await sgMail.send(msg);
+        } catch (error) {
+            console.error('Error sending verification approval email:', error);
+        }
+    }
+
+    /**
+     * Send verification rejection email
+     */
+    static async sendVerificationRejection(
+        email: string,
+        name: string,
+        reason: string
+    ): Promise<void> {
+        const msg = {
+            to: email,
+            from: process.env.SENDGRID_FROM_EMAIL!,
+            subject: 'Space Hub Verification Update',
+            html: `
+            <h2>Hello ${name},</h2>
+            <p>We've reviewed your verification request and need you to make some updates.</p>
+            <p><strong>Reason:</strong></p>
+            <p style="background-color: #FEF2F2; padding: 12px; border-left: 4px solid #DC2626; margin: 16px 0;">
+                ${reason}
+            </p>
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+                <li>Review the feedback above</li>
+                <li>Update your verification documents</li>
+                <li>Resubmit your verification request</li>
+            </ol>
+            <p>
+                <a href="${process.env.FRONTEND_URL}/dashboard/verification" 
+                   style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Update Documents
+                </a>
+            </p>
+            <p style="color: #6B7280; font-size: 14px;">
+                If you have questions, please contact our support team.
+            </p>
+        `
+        };
+
+        try {
+            await sgMail.send(msg);
+        } catch (error) {
+            console.error('Error sending verification rejection email:', error);
+        }
+    }
 }

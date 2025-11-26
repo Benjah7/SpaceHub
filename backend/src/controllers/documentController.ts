@@ -13,12 +13,18 @@ export const uploadDocument = asyncHandler(async (req: Request, res: Response) =
         throw new ApiError(400, 'No document file provided');
     }
 
-    const { type, propertyId } = req.body;
+    // CHANGE THIS LINE - accept both field names
+    const { type, documentType, propertyId } = req.body;
+    const docType = type || documentType;
+
+    if (!docType) {
+        throw new ApiError(400, 'Document type is required');
+    }
 
     const document = await CloudinaryService.uploadDocument(
         req.file,
         req.user!.id,
-        type,
+        docType,  // Use the normalized value
         propertyId ? parseInt(propertyId) : undefined
     );
 
@@ -57,26 +63,34 @@ export const getDocuments = asyncHandler(async (req: Request, res: Response) => 
 export const getPropertyDocuments = asyncHandler(async (req: Request, res: Response) => {
     const propertyId = parseInt(req.params.propertyId);
 
-    // Verify user has access to property
+    // Verify property exists
     const property = await prisma.property.findUnique({
-        where: { id: propertyId }
+        where: { id: propertyId },
+        select: { id: true, ownerId: true }
     });
 
     if (!property) {
         throw new ApiError(404, 'Property not found');
     }
 
-    if (property.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
-        throw new ApiError(403, 'Not authorized to view property documents');
-    }
+    const isOwner = property.ownerId === req.user!.id;
+    const isAdmin = req.user!.role === 'ADMIN';
 
+    // Get all documents
     const documents = await prisma.document.findMany({
         where: { propertyId },
         orderBy: { createdAt: 'desc' }
     });
 
+    // Filter based on role
+    const filteredDocuments = isOwner || isAdmin
+        ? documents
+        : documents.filter(doc =>
+            ['LEASE_AGREEMENT', 'OTHER'].includes(doc.type)
+        );
+
     res.json(
-        ApiResponse.success(documents, 'Property documents retrieved successfully')
+        ApiResponse.success(filteredDocuments, 'Property documents retrieved successfully')
     );
 });
 
