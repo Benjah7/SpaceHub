@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DocumentCard } from './DocumentCard';
 import { DocumentUploadModal } from './DocumentUploadModal';
 import { Button } from '@/components/ui/Button';
@@ -36,7 +36,6 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
         if (isOwner) return true;
         return PUBLIC_DOC_TYPES.includes(doc.documentType as DocumentType);
     }) as Document[];
-
 
     const handleUpload = async (file: File, documentType: DocumentType) => {
         await uploadDocument(file, documentType, propertyId);
@@ -81,7 +80,6 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
                     )}
                 </div>
 
-                {/* Only owners can upload */}
                 {isOwner && (
                     <Button
                         size="sm"
@@ -93,7 +91,6 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
                 )}
             </div>
 
-            {/* ===== CHANGE documents to visibleDocuments ===== */}
             {visibleDocuments.length === 0 ? (
                 <div className="text-center py-12 bg-neutral-bg rounded-xl border-2 border-dashed border-neutral-border">
                     <FileText className="w-12 h-12 mx-auto text-neutral-tertiary mb-3" />
@@ -116,16 +113,18 @@ export const PropertyDocuments: React.FC<PropertyDocumentsProps> = ({
                 </div>
             )}
 
-            {/* Upload Modal */}
             {showUploadModal && (
                 <DocumentUploadModal
                     isOpen={showUploadModal}
                     onClose={() => setShowUploadModal(false)}
                     onUpload={handleUpload}
-                    // ===== ADD THIS: Restrict upload types for property docs =====
-                    allowedTypes={PUBLIC_DOC_TYPES}
+                    allowedTypes={isOwner ? undefined : PUBLIC_DOC_TYPES}
                     title="Upload Property Document"
-                    description="Share documents that help tenants understand the property (lease templates, building rules, etc.)"
+                    description={
+                        isOwner
+                            ? "Upload property documents. Verification documents (title deeds, permits) are only visible to admins."
+                            : "Share documents with the property owner"
+                    }
                 />
             )}
         </div>

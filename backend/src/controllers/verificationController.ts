@@ -22,6 +22,7 @@ export const getPendingVerifications = asyncHandler(async (_req: Request, res: R
             email: true,
             phone: true,
             createdAt: true,
+            verificationStatus: true,
             documents: {
                 where: {
                     type: {

@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { PROPERTY_TYPE_LABELS } from '@/types';
 import toast from 'react-hot-toast';
+import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 
 interface PropertyCardProps {
   property: Property;
@@ -50,7 +51,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
   const handleComparisonToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (inComparison) {
       removeProperty(property.id);
       toast.success('Removed from comparison');
@@ -90,11 +91,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <Badge variant={statusVariant[property.status]} size="sm">
               {property.status}
             </Badge>
-            {property.verified && (
-              <Badge variant="info" size="sm">
-                <Check className="w-3 h-3 mr-1" />
-                Verified
-              </Badge>
+            {property.owner?.verified && (
+              <VerifiedBadge size="sm" />
             )}
           </div>
 
@@ -125,7 +123,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <h3 className="font-semibold text-lg text-neutral-primary mb-2 line-clamp-2 group-hover:text-brand-primary transition-colors">
             {property.title}
           </h3>
-          
+
           <div className="flex items-center gap-2 text-neutral-secondary text-sm mb-3">
             <MapPin className="w-4 h-4 flex-shrink-0" />
             <span className="line-clamp-1">{property.location.neighborhood}, {property.location.city}</span>
@@ -152,7 +150,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <div className="grid grid-cols-2 gap-2">
             {onContact && (
               <Button
-                variant="outline"
+                variant="primaryalt"
                 size="sm"
                 onClick={handleContactClick}
               >

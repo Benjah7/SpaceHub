@@ -7,17 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { DocumentType, DOCUMENT_TYPE_LABELS, ALLOWED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE } from '@/types';
 
-const DOCUMENT_TYPES = [
-    { value: 'LEASE_AGREEMENT', label: 'Lease Agreement' },
-    { value: 'TITLE_DEED', label: 'Title Deed' },
-    { value: 'BUSINESS_PERMIT', label: 'Business Permit' },
-    { value: 'ID_DOCUMENT', label: 'ID Document' },
-    { value: 'TAX_COMPLIANCE', label: 'Tax Compliance' },
-    { value: 'OTHER', label: 'Other' },
-];
-
-const ALLOWED_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface DocumentUploadModalProps {
     isOpen: boolean;

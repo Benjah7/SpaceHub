@@ -75,7 +75,8 @@ export interface User {
   lastName: string;
   phone: string;
   role: 'OWNER' | 'TENANT' | 'ADMIN';
-  verified: boolean;
+  verified: boolean;  // Add this
+  verificationStatus: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';  // Add this
   avatar?: string;
   createdAt: string;
 }
@@ -905,6 +906,35 @@ export const ALLOWED_DOCUMENT_TYPES = [
 
 export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
+
+export interface VerificationUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  verificationStatus: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  createdAt: string;
+  documents: Array<{
+    id: string;
+    filename: string;
+    url: string;
+    type: string;
+    createdAt: string;
+  }>;
+  properties: Array<{
+    id: string;
+    propertyName: string;
+    status: string;
+  }>;
+}
+
+export interface VerificationStats {
+  unverified: number;
+  pending: number;
+  verified: number;
+  rejected: number;
+  total: number;
+}
 
 
 

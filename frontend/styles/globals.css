@@ -53,9 +53,41 @@
     font-weight: 500;
   }
 
+  .btn-primary-alt {
+    @apply btn bg-brand-primary text-white hover:bg-opacity-90 focus:ring-brand-primary;
+    font-weight: 500;
+  }
+
   .btn-secondary {
     @apply btn bg-transparent border-2 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white focus:ring-brand-primary;
     font-weight: 500;
+  }
+
+  .btn-danger {
+    @apply btn bg-status-error text-white hover:bg-opacity-90 focus:ring-status-error;
+    font-weight: 500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-neutral-text-primary hover:bg-neutral-surface focus:ring-neutral-text-primary;
+    font-weight: 500;
+  }
+
+  .btn-outline {
+    @apply btn bg-transparent border-2 border-neutral-border text-neutral-text-primary hover:bg-neutral-surface focus:ring-neutral-text-primary;
+    font-weight: 500;
+  }
+
+  .btn-sm {
+    @apply px-md py-2 text-body-sm;
+  }
+
+  .btn-lg {
+    @apply px-xl py-4 text-body-lg;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-full bg-neutral-surface hover:bg-neutral-surface-hover focus:ring-neutral-text-primary;
   }
 
   

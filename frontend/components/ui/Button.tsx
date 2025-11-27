@@ -5,7 +5,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'text' | 'danger' | 'ghost'| 'outline'| 'success' ;
+type ButtonVariant = 'primary' | 'primaryalt' | 'secondary' | 'text' | 'danger' | 'ghost'| 'outline'| 'success' ;
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'size'> {
@@ -20,6 +20,7 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'size'> {
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: 'btn-primary',
+  primaryalt: 'btn-primary-alt',
   secondary: 'btn-secondary',
   text: 'btn-text',
   danger: 'bg-status-error text-white hover:bg-opacity-90',

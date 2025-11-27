@@ -31,7 +31,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   // ✅ Get return URL from query params
-  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+  const returnUrl = searchParams.get('returnUrl') || '/';
 
   // ✅ Redirect if already authenticated
   React.useEffect(() => {

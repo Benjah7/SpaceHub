@@ -37,6 +37,12 @@ export const Header: React.FC = () => {
       ]
       : []
     ),
+    ...(isAuthenticated && user?.role === 'ADMIN'
+      ? [
+        { name: 'Admin Panel', href: '/admin/verification' },
+        { name: 'Analytics', href: '/admin/analytics' }
+      ]
+      : [])
   ];
 
   const toggleLanguage = () => {

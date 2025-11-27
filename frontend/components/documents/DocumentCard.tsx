@@ -79,11 +79,11 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({ document, onDelete }
                                 {formatFileSize(document.fileSize)}
                             </span>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={handleDownload}>
+                                <Button type="button" variant="outline" size="sm" onClick={handleDownload}>
                                     <Download className="w-3 h-3 mr-1" />
                                     Download
                                 </Button>
-                                <Button
+                                <Button type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setShowDeleteModal(true)}

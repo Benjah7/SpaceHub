@@ -521,14 +521,7 @@ export default function EditPropertyPage() {
             </Card>
           </motion.div>
 
-          {/* Documents Section */}
-          <div className="bg-white rounded-xl border-2 border-neutral-border p-6 mt-6">
-            <PropertyDocuments
-              propertyId={propertyId}
-              isOwner={true}
-            />
-          </div>
-
+        
           {/* Images */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -667,6 +660,16 @@ export default function EditPropertyPage() {
             </Button>
           </motion.div>
         </form>
+
+          {/* Documents Section */}
+          <div className="bg-white rounded-xl border-2 border-neutral-border p-6 mt-6">
+            <PropertyDocuments
+              propertyId={propertyId}
+              
+              isOwner={true}
+            />
+          </div>
+
       </div>
     </div>
   );

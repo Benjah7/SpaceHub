@@ -24,6 +24,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { useLanguageStore } from '@/lib/store/language-store';
 import { PROPERTY_STATUS_LABELS } from '@/types';
 import type { Property, Inquiry } from '@/types';
+import { OwnerVerification } from '@/components/verification/OwnerVerification';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -130,6 +131,12 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-neutral-bg">
       <div className="container-custom py-xl">
+
+        {user?.role === 'OWNER' && (
+  <div className="mb-6">
+    <OwnerVerification />
+  </div>
+)}
         {/* Header */}
         <motion.div
           className="flex items-center justify-between mb-xl"

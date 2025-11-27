@@ -17,6 +17,8 @@ import type {
   AppointmentStatus,
   SearchCriteria,
   PaginationMeta,
+  VerificationStats,
+  VerificationUser,
 
 } from '@/types';
 import type {
@@ -1011,7 +1013,7 @@ class ApiClient {
   ): Promise<any> {
     const formData = new FormData();
     formData.append('document', file);
-    formData.append('documentType', documentType);
+    formData.append('type', documentType); // Already fixed
     if (propertyId) {
       formData.append('propertyId', propertyId);
     }
@@ -1027,10 +1029,26 @@ class ApiClient {
     );
 
     if (response.success && response.data) {
-      return response.data;
+      // Transform backend format to frontend format
+      return this.transformDocument(response.data);
     }
 
     throw new Error('Failed to upload document');
+  }
+
+  // Add this transformation method
+  private transformDocument(backendDoc: any): any {
+    return {
+      id: String(backendDoc.id),
+      fileName: backendDoc.filename, // Backend uses 'filename'
+      fileType: backendDoc.type,
+      fileSize: 0, // Backend doesn't store file size
+      url: backendDoc.url,
+      documentType: backendDoc.type,
+      propertyId: backendDoc.propertyId ? String(backendDoc.propertyId) : undefined,
+      userId: String(backendDoc.userId),
+      uploadedAt: backendDoc.createdAt, // Map createdAt to uploadedAt
+    };
   }
 
   /**
@@ -1038,26 +1056,19 @@ class ApiClient {
    */
   async getMyDocuments(): Promise<any[]> {
     const response = await this.get<BackendApiResponse<any[]>>('/documents');
-
     if (response.success && response.data) {
-      return response.data;
+      return response.data.map(doc => this.transformDocument(doc));
     }
-
     return [];
   }
 
-  /**
-   * Get property documents
-   */
   async getPropertyDocuments(propertyId: string): Promise<any[]> {
     const response = await this.get<BackendApiResponse<any[]>>(
       `/documents/property/${propertyId}`
     );
-
     if (response.success && response.data) {
-      return response.data;
+      return response.data.map(doc => this.transformDocument(doc));
     }
-
     return [];
   }
 
@@ -1307,7 +1318,71 @@ class ApiClient {
       },
     };
   }
+
+  // Verification endpoints
+  async getPendingVerifications(): Promise<VerificationUser[]> {
+    const response = await this.get<BackendApiResponse<any[]>>('/verification/pending');
+    if (response.success && response.data) {
+      return response.data.map(user => ({
+        id: String(user.id),
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        verificationStatus: user.verificationStatus,
+        createdAt: user.createdAt,
+        documents: user.documents || [],
+        properties: user.properties || []
+      }));
+    }
+    return [];
+  }
+
+  async getAllVerifications(status?: string): Promise<VerificationUser[]> {
+    const endpoint = status ? `/verification/all?status=${status}` : '/verification/all';
+    const response = await this.get<BackendApiResponse<any[]>>(endpoint);
+    if (response.success && response.data) {
+      return response.data.map(user => ({
+        id: String(user.id),
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        verificationStatus: user.verificationStatus,
+        createdAt: user.createdAt,
+        documents: user.documents || [],
+        properties: user.properties || []
+      }));
+    }
+    return [];
+  }
+
+  async getVerificationStats(): Promise<VerificationStats> {
+    const response = await this.get<BackendApiResponse<VerificationStats>>('/verification/stats');
+    if (response.success && response.data) {
+      return response.data;
+    }
+    return {
+      unverified: 0,
+      pending: 0,
+      verified: 0,
+      rejected: 0,
+      total: 0
+    };
+  }
+
+  async approveVerification(userId: string, notes?: string): Promise<void> {
+    await this.post(`/verification/${userId}/approve`, { notes });
+  }
+
+  async rejectVerification(userId: string, reason: string): Promise<void> {
+    await this.post(`/verification/${userId}/reject`, { reason });
+  }
+
+  async requestVerification(): Promise<void> {
+    await this.post('/verification/request');
+  }
 }
+
+
 
 
 export const apiClient = new ApiClient();

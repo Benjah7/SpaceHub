@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Heart, MessageSquare, Search, CreditCard,
-    Bell, Settings, LogOut, LayoutDashboard, ChevronDown,
+    Bell, Settings, LogOut, LayoutDashboard, ChevronDown,TrendingUp
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,34 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
     };
 
     const getMenuItems = (): MenuItem[] => {
+
+        if (user.role === 'ADMIN') {
+            return [
+                {
+                    label: 'Verification',
+                    href: '/admin/verification',
+                    icon: <LayoutDashboard className="w-4 h-4" />,
+                },
+                {
+                    label: 'Platform Analytics',
+                    href: '/admin/analytics',
+                    icon: <TrendingUp className="w-4 h-4" />,
+                },
+                {
+                    label: 'Settings',
+                    href: '/admin/settings',
+                    icon: <Settings className="w-4 h-4" />,
+                    divider: true,
+                },
+                {
+                    label: 'Logout',
+                    icon: <LogOut className="w-4 h-4" />,
+                    onClick: handleLogout,
+                    danger: true,
+                },
+            ];
+        }
+
         if (user.role === 'OWNER') {
             return [
                 {
