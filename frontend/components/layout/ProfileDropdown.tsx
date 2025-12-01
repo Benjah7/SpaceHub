@@ -74,11 +74,16 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
                     divider: true,
                 },
                 {
+                    label: 'Payment Overview',
+                    href: '/admin/payments',
+                    icon: <CreditCard className="w-4 h-4" />,
+                },
+                {
                     label: 'Logout',
                     icon: <LogOut className="w-4 h-4" />,
                     onClick: handleLogout,
                     danger: true,
-                },
+                }
             ];
         }
 
@@ -93,6 +98,12 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user }) => {
                     label: 'Settings',
                     href: '/dashboard/settings',
                     icon: <Settings className="w-4 h-4" />,
+                },
+                {
+                    label: 'Payment Overview',
+                    href: '/owner/payments',
+                    icon: <CreditCard className="w-4 h-4" />,
+                    divider: true,
                 },
                 {
                     label: 'Logout',

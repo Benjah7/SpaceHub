@@ -38,16 +38,41 @@ export const mpesaCallback = asyncHandler(async (req: Request, res: Response) =>
 
 /**
  * Query payment status
- * GET /api/payments/:checkoutRequestID/status
+ * GET /api/payments/:id/status  (use payment ID, not checkoutRequestID)
  */
 export const queryPaymentStatus = asyncHandler(async (req: Request, res: Response) => {
-    const { checkoutRequestID } = req.params;
+    const paymentId = parseInt(req.params.id);
 
-    const status = await MpesaService.queryPaymentStatus(checkoutRequestID);
+    if (isNaN(paymentId)) {
+        return res.status(400).json(ApiResponse.error('Invalid payment ID'));
+    }
 
-    res.json(
-        ApiResponse.success(status, 'Payment status retrieved')
-    );
+
+    const payment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+    });
+
+    if (!payment || payment.userId !== req.user!.id) {
+        return res.status(404).json(ApiResponse.error('Payment not found'));
+    }
+
+    console.log('payment request id: ', payment.checkoutRequestID);
+
+    // Check DB first - callbacks already update status
+    if (payment.status === 'COMPLETED' || payment.status === 'FAILED') {
+        return res.json(
+            ApiResponse.success(
+                { status: payment.status, mpesaReceiptNumber: payment.mpesaReceiptNumber },
+                'Payment status from database'
+            )
+        );
+    }
+    console.log('payment request id: ', payment.checkoutRequestID);
+
+    // Only query M-Pesa if still pending
+    const status = await MpesaService.queryPaymentStatus(payment.checkoutRequestID!);
+
+    return res.json(ApiResponse.success(status, 'Payment status retrieved'));
 });
 
 /**
@@ -96,7 +121,7 @@ export const getPaymentById = asyncHandler(async (req: Request, res: Response) =
                     id: true,
                     propertyName: true,
                     address: true,
-                     ownerId: true
+                    ownerId: true
                 }
             }
         }

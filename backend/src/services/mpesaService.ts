@@ -96,54 +96,54 @@ export class MpesaService {
         }
     }
 
-/**
- * Handle M-Pesa callback
- */
-static async handleCallback(callbackData: any) {
-    try {
-        const { ResultCode, CheckoutRequestID, CallbackMetadata } = callbackData.Body.stkCallback;
+    /**
+     * Handle M-Pesa callback
+     */
+    static async handleCallback(callbackData: any) {
+        try {
+            const { ResultCode, CheckoutRequestID, CallbackMetadata } = callbackData.Body.stkCallback;
 
-        if (ResultCode === 0) {
-            // Payment successful
-            const metadata = CallbackMetadata.Item;
-            const mpesaReceiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
+            if (ResultCode === 0) {
+                // Payment successful
+                const metadata = CallbackMetadata.Item;
+                const mpesaReceiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
 
-            // Update payment record
-            const payment = await prisma.payment.update({
-                where: { checkoutRequestID: CheckoutRequestID },
-                data: {
-                    status: 'COMPLETED',
-                    mpesaReceiptNumber,
-                    completedAt: new Date()
-                },
-                include: {
-                    user: true,
-                    property: {
-                        include: {
-                            owner: true
+                // Update payment record
+                const payment = await prisma.payment.update({
+                    where: { checkoutRequestID: CheckoutRequestID },
+                    data: {
+                        status: 'COMPLETED',
+                        mpesaReceiptNumber,
+                        completedAt: new Date()
+                    },
+                    include: {
+                        user: true,
+                        property: {
+                            include: {
+                                owner: true
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            // Send notifications
-            // TODO: Implement notification sending
+                // Send notifications
+                // TODO: Implement notification sending
 
-            return payment;
-        } else {
-            // Payment failed
-            await prisma.payment.update({
-                where: { checkoutRequestID: CheckoutRequestID },
-                data: { status: 'FAILED' }
-            });
+                return payment;
+            } else {
+                // Payment failed
+                await prisma.payment.update({
+                    where: { checkoutRequestID: CheckoutRequestID },
+                    data: { status: 'FAILED' }
+                });
 
-            return null;
+                return null;
+            }
+        } catch (error) {
+            console.error('M-Pesa callback error:', error);
+            throw error;
         }
-    } catch (error) {
-        console.error('M-Pesa callback error:', error);
-        throw error;
     }
-}
     /**
      * Query payment status
      */

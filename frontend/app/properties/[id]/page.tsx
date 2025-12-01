@@ -35,6 +35,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { PROPERTY_TYPE_LABELS, PROPERTY_STATUS_LABELS } from '@/types';
 import type { Property } from '@/types';
 import toast from 'react-hot-toast';
+import { PaymentModal } from '@/components/payment/PaymentModal';
 
 export default function PropertyDetailPage() {
   const params = useParams();
@@ -48,6 +49,8 @@ export default function PropertyDetailPage() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [similarProperties, setSimilarProperties] = useState<Property[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentType, setSelectedPaymentType] = useState<'DEPOSIT' | 'BOOKING' | 'RENT'>('DEPOSIT');
 
   const isOwner = user?.id === property?.ownerId;
 
@@ -193,6 +196,17 @@ export default function PropertyDetailPage() {
   if (!property) {
     return null;
   }
+
+  const handlePayment = (type: 'DEPOSIT' | 'BOOKING' | 'RENT') => {
+    setSelectedPaymentType(type);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (paymentId: string) => {
+    // Show success notification
+    alert('Payment successful!');
+    // Optionally refresh data or navigate
+  };
 
   return (
     <div className="min-h-screen bg-neutral-bg">
@@ -518,6 +532,68 @@ export default function PropertyDetailPage() {
           )}
         </div>
       </Modal>
+
+      {/* Payment Buttons Section */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <h3 className="text-xl font-bold mb-4">Make Payment</h3>
+
+        <div className="grid gap-4">
+          {/* Security Deposit */}
+          <button
+            onClick={() => handlePayment('DEPOSIT')}
+            className="flex justify-between items-center p-4 border-2 border-orange-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all"
+          >
+            <div>
+              <p className="font-semibold text-gray-800">Security Deposit</p>
+              <p className="text-sm text-gray-500">Required before move-in</p>
+            </div>
+            <p className="text-xl font-bold text-orange-600">
+              KES {(property.price * 2).toLocaleString()}
+            </p>
+          </button>
+
+          {/* Booking Fee */}
+          <button
+            onClick={() => handlePayment('BOOKING')}
+            className="flex justify-between items-center p-4 border-2 border-orange-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all"
+          >
+            <div>
+              <p className="font-semibold text-gray-800">Booking Fee</p>
+              <p className="text-sm text-gray-500">Reserve this property</p>
+            </div>
+            <p className="text-xl font-bold text-orange-600">KES 5,000</p>
+          </button>
+
+          {/* First Month Rent */}
+          <button
+            onClick={() => handlePayment('RENT')}
+            className="flex justify-between items-center p-4 border-2 border-orange-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all"
+          >
+            <div>
+              <p className="font-semibold text-gray-800">First Month Rent</p>
+              <p className="text-sm text-gray-500">Pay your first month</p>
+            </div>
+            <p className="text-xl font-bold text-orange-600">
+              KES {property.price.toLocaleString()}
+            </p>
+          </button>
+        </div>
+      </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        property={property}
+        amount={
+          selectedPaymentType === 'DEPOSIT' ? property.price * 2 :
+            selectedPaymentType === 'BOOKING' ? 5000 :
+              property.price
+        }
+        paymentType={selectedPaymentType}
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
+
   );
 }

@@ -193,8 +193,10 @@ export const validateInitiatePayment = [
         .isFloat({ min: 1 })
         .withMessage('Amount must be positive'),
     body('phoneNumber')
-        .matches(VALIDATION.PHONE_REGEX)
-        .withMessage('Valid Kenyan phone number required (+254XXXXXXXXX)'),
+        .trim()
+        .customSanitizer((value) => value.replace(/^\+/, '')) // Remove leading +
+        .matches(/^254[17]\d{8}$/)
+        .withMessage('Phone must be 254XXXXXXXXX format'),
     body('propertyId')
         .isInt({ min: 1 })
         .withMessage('Valid property ID required'),

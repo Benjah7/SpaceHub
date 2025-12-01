@@ -25,6 +25,7 @@ import verificationRoutes from './routes/verificationRoutes';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler';
+import adminRoutes from './routes/adminRoutes';
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/verification', verificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {

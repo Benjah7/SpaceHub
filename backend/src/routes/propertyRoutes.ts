@@ -16,6 +16,7 @@ import { uploadPropertyImages } from '../middleware/upload';
 import { cache, invalidateCache } from '../middleware/cache';
 import { CACHE_DURATIONS } from '../utils/constants';
 import { getPropertyInquiries } from '../controllers/inquiryController';
+import { getPropertyPayments } from '../controllers/propertyPaymentController';
 
 const router: Router = Router();
 
@@ -86,5 +87,7 @@ router.get(
     authorize('OWNER', 'ADMIN'),
     getPropertyInquiries
 );
+
+router.get('/:id/payments', authenticate, getPropertyPayments);
 
 export default router;

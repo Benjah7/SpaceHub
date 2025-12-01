@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, MessageSquare, Calendar } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ProfileDropdown } from '@/components/layout/ProfileDropdown';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -40,7 +40,6 @@ export const Header: React.FC = () => {
     ...(isAuthenticated && user?.role === 'ADMIN'
       ? [
         { name: 'Admin Panel', href: '/admin/verification' },
-        { name: 'Analytics', href: '/admin/analytics' }
       ]
       : [])
   ];
