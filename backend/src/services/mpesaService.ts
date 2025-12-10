@@ -37,6 +37,16 @@ export class MpesaService {
         userId: number,
         paymentType: string
     ) {
+        // Validate M-Pesa configuration
+        if (!process.env.MPESA_SHORTCODE || !process.env.MPESA_PASSKEY || !process.env.MPESA_CALLBACK_URL) {
+            console.error('Missing M-Pesa configuration:', {
+                hasShortcode: !!process.env.MPESA_SHORTCODE,
+                hasPasskey: !!process.env.MPESA_PASSKEY,
+                hasCallbackUrl: !!process.env.MPESA_CALLBACK_URL
+            });
+            throw new ApiError(500, 'M-Pesa configuration incomplete. Please contact support.');
+        }
+
         const token = await this.getAccessToken();
         const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, -3);
         const password = Buffer.from(
@@ -47,26 +57,31 @@ export class MpesaService {
             ? 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
             : 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
 
+        const payload = {
+            BusinessShortCode: process.env.MPESA_SHORTCODE,
+            Password: password,
+            Timestamp: timestamp,
+            TransactionType: 'CustomerPayBillOnline',
+            Amount: Math.round(amount),
+            PartyA: phoneNumber,
+            PartyB: process.env.MPESA_SHORTCODE,
+            PhoneNumber: phoneNumber,
+            CallBackURL: process.env.MPESA_CALLBACK_URL,
+            AccountReference: `SPACEHUB-${propertyId}`,
+            TransactionDesc: `Space Hub - ${paymentType}`
+        };
+
+        console.log('Initiating M-Pesa STK Push:', {
+            url,
+            amount: payload.Amount,
+            phoneNumber: payload.PhoneNumber,
+            environment: process.env.MPESA_ENVIRONMENT
+        });
+
         try {
-            const { data } = await axios.post(
-                url,
-                {
-                    BusinessShortCode: process.env.MPESA_SHORTCODE,
-                    Password: password,
-                    Timestamp: timestamp,
-                    TransactionType: 'CustomerPayBillOnline',
-                    Amount: Math.round(amount),
-                    PartyA: phoneNumber,
-                    PartyB: process.env.MPESA_SHORTCODE,
-                    PhoneNumber: phoneNumber,
-                    CallBackURL: process.env.MPESA_CALLBACK_URL,
-                    AccountReference: `SPACEHUB-${propertyId}`,
-                    TransactionDesc: `Space Hub - ${paymentType}`
-                },
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const { data } = await axios.post(url, payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
             // Create payment record
             const payment = await prisma.payment.create({
@@ -91,8 +106,17 @@ export class MpesaService {
                 payment
             };
         } catch (error: any) {
-            console.error('M-Pesa STK Push error:', error.response?.data || error);
-            throw new ApiError(500, 'Failed to initiate payment');
+            const errorData = error.response?.data || error;
+            console.error('M-Pesa STK Push error:', errorData);
+
+            // Provide more detailed error message
+            if (errorData?.errorMessage) {
+                throw new ApiError(500, `M-Pesa Error: ${errorData.errorMessage}`);
+            } else if (errorData?.ResponseDescription) {
+                throw new ApiError(500, `M-Pesa Error: ${errorData.ResponseDescription}`);
+            } else {
+                throw new ApiError(500, 'Failed to initiate payment. Please check M-Pesa configuration.');
+            }
         }
     }
 

@@ -898,6 +898,7 @@ class ApiClient {
     propertyId: string;
     amount: number;
     phoneNumber: string;
+    paymentType: string;
   }): Promise<Payment> {
     const response = await this.post<BackendApiResponse<BackendPayment>>(
       '/payments/initiate',
@@ -905,6 +906,7 @@ class ApiClient {
         propertyId: parseInt(data.propertyId),
         amount: data.amount,
         phoneNumber: data.phoneNumber,
+        paymentType: data.paymentType,
       }
     );
 

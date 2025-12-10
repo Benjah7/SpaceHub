@@ -96,6 +96,7 @@ export function PaymentModal({
                 propertyId: property.id,
                 amount,
                 phoneNumber: phoneNumber.replace(/\s/g, ''), // Remove spaces
+                paymentType,
             });
 
             setPaymentId(payment.id);
