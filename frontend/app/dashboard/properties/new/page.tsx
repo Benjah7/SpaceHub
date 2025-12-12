@@ -3,7 +3,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,6 +62,13 @@ export default function NewPropertyPage() {
   const [images, setImages] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // Redirect if user is not an owner
+  useEffect(() => {
+    if (user && user.role !== 'OWNER') {
+      router.push('/');
+    }
+  }, [user, router]);
+
   const { register, handleSubmit, formState: { errors }, control, setValue, watch } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
@@ -104,7 +111,7 @@ export default function NewPropertyPage() {
       const property = await apiClient.createProperty({
         ...data,
         propertyType: data.propertyType,
-        amenities: selectedAmenities.map(id => 
+        amenities: selectedAmenities.map(id =>
           COMMON_AMENITIES.find(a => a.id === id)?.name || id
         ),
       });
@@ -123,8 +130,8 @@ export default function NewPropertyPage() {
     }
   };
 
+  // Don't render form if user is not an owner
   if (user?.role !== 'OWNER') {
-    router.push('/');
     return null;
   }
 
