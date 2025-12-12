@@ -133,10 +133,10 @@ export default function DashboardPage() {
       <div className="container-custom py-xl">
 
         {user?.role === 'OWNER' && (
-  <div className="mb-6">
-    <OwnerVerification />
-  </div>
-)}
+          <div className="mb-6">
+            <OwnerVerification />
+          </div>
+        )}
         {/* Header */}
         <motion.div
           className="flex items-center justify-between mb-xl"
@@ -387,8 +387,8 @@ export default function DashboardPage() {
                               inquiry.status === 'PENDING'
                                 ? 'warning'
                                 : inquiry.status === 'RESPONDED'
-                                ? 'success'
-                                : 'secondary'
+                                  ? 'success'
+                                  : 'secondary'
                             }
                             className="text-tiny"
                           >

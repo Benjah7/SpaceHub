@@ -23,7 +23,7 @@ interface DocumentCardProps {
     onDelete: (id: string) => void;
 }
 
-export const DocumentCard: React.FC<DocumentCardProps> = ({ document, onDelete }) => {
+export const DocumentCard: React.FC<DocumentCardProps> = ({ document: doc, onDelete }) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     const formatFileSize = (bytes: number): string => {
@@ -32,12 +32,34 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({ document, onDelete }
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     };
 
-    const handleDownload = () => {
-        window.open(document.url, '_blank');
+    const handleDownload = async () => {
+        try {
+            // Fetch the file
+            const response = await fetch(doc.url);
+            const blob = await response.blob();
+
+            // Create a temporary URL for the blob
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            // Create a temporary anchor element and trigger download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = doc.fileName; // Use the original filename with extension
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed:', error);
+            // Fallback to opening in new tab if download fails
+            window.open(doc.url, '_blank');
+        }
     };
 
     const handleDelete = () => {
-        onDelete(document.id);
+        onDelete(doc.id);
         setShowDeleteModal(false);
     };
 
@@ -55,28 +77,28 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({ document, onDelete }
                         <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-neutral-primary truncate mb-1">
-                                    {document.fileName}
+                                    {doc.fileName}
                                 </h3>
                                 <div className="flex items-center gap-2 text-xs text-neutral-tertiary">
                                     <Calendar className="w-3 h-3" />
-                                    {formatDate(document.uploadedAt)}
+                                    {formatDate(doc.uploadedAt)}
                                 </div>
                             </div>
                             <Badge variant="secondary">
-                                {DOCUMENT_TYPE_LABELS[document.documentType] || document.documentType}
+                                {DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}
                             </Badge>
                         </div>
 
-                        {document.property && (
+                        {doc.property && (
                             <div className="flex items-center gap-2 text-sm text-neutral-secondary mb-3">
                                 <Building2 className="w-4 h-4" />
-                                <span className="truncate">{document.property.propertyName}</span>
+                                <span className="truncate">{doc.property.propertyName}</span>
                             </div>
                         )}
 
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-neutral-tertiary">
-                                {formatFileSize(document.fileSize)}
+                                {formatFileSize(doc.fileSize)}
                             </span>
                             <div className="flex gap-2">
                                 <Button type="button" variant="outline" size="sm" onClick={handleDownload}>
@@ -104,7 +126,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({ document, onDelete }
             >
                 <div className="space-y-4">
                     <p className="text-neutral-secondary">
-                        Are you sure you want to delete "{document.fileName}"? This action cannot be undone.
+                        Are you sure you want to delete "{doc.fileName}"? This action cannot be undone.
                     </p>
                     <div className="flex gap-3 justify-end">
                         <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
