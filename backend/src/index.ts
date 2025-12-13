@@ -96,10 +96,13 @@ app.use('*', (_req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Space Hub Backend running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🌍 Frontend URL: ${process.env.FRONTEND_URL}`);
 });
+
+// Increase timeout for file uploads (2 minutes)
+server.timeout = 120000;
 
 export default app;

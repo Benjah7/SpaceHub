@@ -96,6 +96,17 @@ export default function NewPropertyPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
+
+      // Validate file sizes (10MB max per file)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+      const oversizedFiles = newFiles.filter(file => file.size > MAX_FILE_SIZE);
+
+      if (oversizedFiles.length > 0) {
+        const fileNames = oversizedFiles.map(f => f.name).join(', ');
+        toast.error(`File(s) too large: ${fileNames}. Maximum file size is 10MB`);
+        return;
+      }
+
       setImages(prev => [...prev, ...newFiles].slice(0, 10));
     }
   };

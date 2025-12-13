@@ -158,6 +158,16 @@ export default function EditPropertyPage() {
       return;
     }
 
+    // Validate file sizes (10MB max per file)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+    const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
+
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      toast.error(`File(s) too large: ${fileNames}. Maximum file size is 10MB`);
+      return;
+    }
+
     setNewImages((prev) => [...prev, ...files]);
 
     // Create previews

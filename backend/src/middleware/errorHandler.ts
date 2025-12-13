@@ -45,6 +45,11 @@ export const errorHandler = (
     );
   }
 
+  // Handle Multer errors
+  if (err.name === 'MulterError') {
+    return handleMulterError(err as any, res);
+  }
+
   // Default server error
   res.status(500).json(
     ApiResponse.error(
@@ -54,6 +59,33 @@ export const errorHandler = (
     )
   );
   return next();
+};
+
+/**
+ * Handle Multer-specific errors
+ */
+const handleMulterError = (err: any, res: Response) => {
+  switch (err.code) {
+    case 'LIMIT_FILE_SIZE':
+      return res.status(400).json(
+        ApiResponse.error('File is too large. Maximum file size is 10MB')
+      );
+
+    case 'LIMIT_FILE_COUNT':
+      return res.status(400).json(
+        ApiResponse.error('Too many files. Maximum is 10 files')
+      );
+
+    case 'LIMIT_UNEXPECTED_FILE':
+      return res.status(400).json(
+        ApiResponse.error('Unexpected file field')
+      );
+
+    default:
+      return res.status(400).json(
+        ApiResponse.error('File upload error')
+      );
+  }
 };
 
 /**
