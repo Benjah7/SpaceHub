@@ -43,7 +43,7 @@ export const validateRegister = [
         .matches(VALIDATION.PHONE_REGEX)
         .withMessage('Valid Kenyan phone number required (+254XXXXXXXXX)'),
     body('role')
-        .isIn(['TENANT', 'OWNER'])
+        .isIn(['TENANT', 'OWNER', 'ADMIN'])
         .withMessage('Role must be TENANT or OWNER'),
     handleValidationErrors
 ];
