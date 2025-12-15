@@ -106,6 +106,10 @@ export const getPaymentHistory = asyncHandler(async (req: Request, res: Response
 export const getPaymentById = asyncHandler(async (req: Request, res: Response) => {
     const paymentId = parseInt(req.params.id);
 
+    if (isNaN(paymentId)) {
+        return res.status(400).json(ApiResponse.error('Invalid payment ID'));
+    }
+
     const payment = await prisma.payment.findUnique({
         where: { id: paymentId },
         include: {

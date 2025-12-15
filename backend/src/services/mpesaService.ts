@@ -62,7 +62,7 @@ export class MpesaService {
             Password: password,
             Timestamp: timestamp,
             TransactionType: 'CustomerPayBillOnline',
-            Amount: Math.round(amount),
+            Amount: Math.round(1),
             PartyA: phoneNumber,
             PartyB: process.env.MPESA_SHORTCODE,
             PhoneNumber: phoneNumber,
@@ -73,7 +73,7 @@ export class MpesaService {
 
         console.log('Initiating M-Pesa STK Push:', {
             url,
-            amount: payload.Amount,
+            amount: 1,
             phoneNumber: payload.PhoneNumber,
             environment: process.env.MPESA_ENVIRONMENT
         });
