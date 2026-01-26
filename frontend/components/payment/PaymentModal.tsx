@@ -19,14 +19,19 @@ import { Badge } from '@/components/ui/Badge';
 import { useInitiatePayment, usePaymentStatus } from '@/lib/hooks/useForm';
 import { formatCurrency } from '@/lib/utils';
 import type { Property } from '@/types';
+import { Payment } from '@/types/payment-types';
 
 interface PaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    property: Property;
+    property: {
+        id: string;
+        title: string;
+        price: number;
+    };
     paymentType?: 'DEPOSIT' | 'RENT' | 'BOOKING';
     amount?: number;
-    onSuccess?: (paymentId: string) => void;
+    onSuccess?: (paymentId: string, paymentStatus?: Payment) => void; // Updated
 }
 
 type PaymentStep = 'form' | 'processing' | 'checking' | 'success' | 'failed';

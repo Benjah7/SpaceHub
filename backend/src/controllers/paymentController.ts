@@ -7,6 +7,8 @@ import { prisma } from '../utils/prisma';
 /**
  * Initiate M-Pesa payment
  * POST /api/payments/initiate
+ * 
+ * FIXED: Returns only payment object instead of full result to match frontend expectations
  */
 export const initiatePayment = asyncHandler(async (req: Request, res: Response) => {
     const { amount, phoneNumber, propertyId, paymentType } = req.body;
@@ -19,8 +21,12 @@ export const initiatePayment = asyncHandler(async (req: Request, res: Response) 
         paymentType
     );
 
+    // FIXED: Return only the payment object for frontend consumption
+    // The result contains: { checkoutRequestID, merchantRequestID, ..., payment }
+    // Frontend expects the payment directly as response.data
+    // This ensures response.data.id is the payment ID, not undefined
     res.status(201).json(
-        ApiResponse.success(result, 'Payment initiated successfully')
+        ApiResponse.success(result.payment, 'Payment initiated successfully')
     );
 });
 
@@ -38,41 +44,104 @@ export const mpesaCallback = asyncHandler(async (req: Request, res: Response) =>
 
 /**
  * Query payment status
- * GET /api/payments/:id/status  (use payment ID, not checkoutRequestID)
+ * GET /api/payments/:id/status
+ * 
+ * FIXED: Improved validation and error messages
  */
 export const queryPaymentStatus = asyncHandler(async (req: Request, res: Response) => {
     const paymentId = parseInt(req.params.id);
 
-    if (isNaN(paymentId)) {
-        return res.status(400).json(ApiResponse.error('Invalid payment ID'));
+    // Validate payment ID format
+    if (isNaN(paymentId) || paymentId <= 0) {
+        return res.status(400).json(
+            ApiResponse.error('Invalid payment ID. Payment ID must be a positive number.')
+        );
     }
 
-
+    // Find payment
     const payment = await prisma.payment.findUnique({
         where: { id: paymentId },
     });
 
-    if (!payment || payment.userId !== req.user!.id) {
-        return res.status(404).json(ApiResponse.error('Payment not found'));
+    if (!payment) {
+        return res.status(404).json(
+            ApiResponse.error('Payment not found')
+        );
     }
 
-    console.log('payment request id: ', payment.checkoutRequestID);
+    // Authorization check
+    if (payment.userId !== req.user!.id) {
+        return res.status(403).json(
+            ApiResponse.error('Not authorized to view this payment')
+        );
+    }
+
+    console.log('Checking payment status:', {
+        paymentId,
+        status: payment.status,
+        checkoutRequestID: payment.checkoutRequestID
+    });
 
     // Check DB first - callbacks already update status
     if (payment.status === 'COMPLETED' || payment.status === 'FAILED') {
         return res.json(
             ApiResponse.success(
-                { status: payment.status, mpesaReceiptNumber: payment.mpesaReceiptNumber },
+                { 
+                    status: payment.status, 
+                    mpesaReceiptNumber: payment.mpesaReceiptNumber,
+                    id: payment.id,
+                    amount: payment.amount,
+                    createdAt: payment.createdAt
+                },
                 'Payment status from database'
             )
         );
     }
-    console.log('payment request id: ', payment.checkoutRequestID);
 
-    // Only query M-Pesa if still pending
-    const status = await MpesaService.queryPaymentStatus(payment.checkoutRequestID!);
+    // Only query M-Pesa if still pending and we have a checkoutRequestID
+    if (!payment.checkoutRequestID) {
+        return res.json(
+            ApiResponse.success(
+                { 
+                    status: payment.status,
+                    id: payment.id,
+                    amount: payment.amount,
+                    createdAt: payment.createdAt
+                },
+                'Payment is pending M-Pesa confirmation'
+            )
+        );
+    }
 
-    return res.json(ApiResponse.success(status, 'Payment status retrieved'));
+    // Query M-Pesa for latest status
+    try {
+        const status = await MpesaService.queryPaymentStatus(payment.checkoutRequestID);
+        
+        return res.json(
+            ApiResponse.success(
+                { 
+                    ...status, 
+                    paymentId: payment.id,
+                    amount: payment.amount 
+                }, 
+                'Payment status retrieved'
+            )
+        );
+    } catch (error) {
+        // If M-Pesa query fails, return DB status
+        console.error('M-Pesa query failed, returning DB status:', error);
+        return res.json(
+            ApiResponse.success(
+                { 
+                    status: payment.status,
+                    id: payment.id,
+                    amount: payment.amount,
+                    createdAt: payment.createdAt
+                },
+                'Payment status from database (M-Pesa query unavailable)'
+            )
+        );
+    }
 });
 
 /**
@@ -102,12 +171,17 @@ export const getPaymentHistory = asyncHandler(async (req: Request, res: Response
 /**
  * Get payment by ID
  * GET /api/payments/:id
+ * 
+ * FIXED: Improved validation and authorization
  */
 export const getPaymentById = asyncHandler(async (req: Request, res: Response) => {
     const paymentId = parseInt(req.params.id);
 
-    if (isNaN(paymentId)) {
-        return res.status(400).json(ApiResponse.error('Invalid payment ID'));
+    // Validate payment ID format
+    if (isNaN(paymentId) || paymentId <= 0) {
+        return res.status(400).json(
+            ApiResponse.error('Invalid payment ID. Payment ID must be a positive number.')
+        );
     }
 
     const payment = await prisma.payment.findUnique({
@@ -140,7 +214,7 @@ export const getPaymentById = asyncHandler(async (req: Request, res: Response) =
     // Ensure user can only view their own payments or is property owner
     if (payment.userId !== req.user!.id && payment.property.ownerId !== req.user!.id) {
         return res.status(403).json(
-            ApiResponse.error('Not authorized')
+            ApiResponse.error('Not authorized to view this payment')
         );
     }
 

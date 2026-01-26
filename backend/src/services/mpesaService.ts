@@ -62,7 +62,7 @@ export class MpesaService {
             Password: password,
             Timestamp: timestamp,
             TransactionType: 'CustomerPayBillOnline',
-            Amount: Math.round(1),
+            Amount: Math.round(amount),
             PartyA: phoneNumber,
             PartyB: process.env.MPESA_SHORTCODE,
             PhoneNumber: phoneNumber,
@@ -73,7 +73,7 @@ export class MpesaService {
 
         console.log('Initiating M-Pesa STK Push:', {
             url,
-            amount: 1,
+            amount: payload.Amount,
             phoneNumber: payload.PhoneNumber,
             environment: process.env.MPESA_ENVIRONMENT
         });
@@ -122,6 +122,7 @@ export class MpesaService {
 
     /**
      * Handle M-Pesa callback
+     * ENHANCED: Updates property status and creates notifications
      */
     static async handleCallback(callbackData: any) {
         try {
@@ -131,6 +132,7 @@ export class MpesaService {
                 // Payment successful
                 const metadata = CallbackMetadata.Item;
                 const mpesaReceiptNumber = metadata.find((i: any) => i.Name === 'MpesaReceiptNumber')?.Value;
+                // const amountPaid = metadata.find((i: any) => i.Name === 'Amount')?.Value;
 
                 // Update payment record
                 const payment = await prisma.payment.update({
@@ -150,15 +152,80 @@ export class MpesaService {
                     }
                 });
 
-                // Send notifications
-                // TODO: Implement notification sending
+                console.log('Payment completed:', {
+                    paymentId: payment.id,
+                    amount: payment.amount,
+                    type: payment.paymentType,
+                    propertyId: payment.propertyId,
+                    mpesaReceipt: mpesaReceiptNumber
+                });
+
+                // ENHANCED: Update property status based on payment type
+                if (payment.paymentType === 'BOOKING_FEE' || payment.paymentType === 'DEPOSIT') {
+                    await prisma.property.update({
+                        where: { id: payment.propertyId },
+                        data: { 
+                            status: 'PENDING' // Mark as pending when booking fee or deposit is paid
+                        }
+                    });
+                    
+                    console.log(`Property ${payment.propertyId} status updated to PENDING after ${payment.paymentType}`);
+                }
+
+                // ENHANCED: Create notification for tenant
+                await prisma.notification.create({
+                    data: {
+                        userId: payment.userId,
+                        type: 'PAYMENT_SUCCESS',
+                        title: 'Payment Successful!',
+                        message: `Your ${payment.paymentType.toLowerCase().replace('_', ' ')} of KES ${payment.amount} for ${payment.property.propertyName} has been received. Receipt: ${mpesaReceiptNumber}`,
+                        link: `/dashboard/payments`
+                    }
+                });
+
+                // ENHANCED: Create notification for property owner
+                await prisma.notification.create({
+                    data: {
+                        userId: payment.property.ownerId,
+                        type: 'PAYMENT_RECEIVED',
+                        title: 'Payment Received!',
+                        message: `${payment.user.name} has paid KES ${payment.amount} (${payment.paymentType.toLowerCase().replace('_', ' ')}) for ${payment.property.propertyName}. Receipt: ${mpesaReceiptNumber}`,
+                        link: `/owner/payments`
+                    }
+                });
+
+                console.log('Notifications created for payment:', payment.id);
+
+                // TODO: Send email receipt
+                // TODO: Send SMS confirmation
 
                 return payment;
             } else {
                 // Payment failed
-                await prisma.payment.update({
+                const failedPayment = await prisma.payment.update({
                     where: { checkoutRequestID: CheckoutRequestID },
-                    data: { status: 'FAILED' }
+                    data: { status: 'FAILED' },
+                    include: {
+                        user: true,
+                        property: true
+                    }
+                });
+
+                console.log('Payment failed:', {
+                    paymentId: failedPayment.id,
+                    resultCode: ResultCode,
+                    checkoutRequestID: CheckoutRequestID
+                });
+
+                // Create notification for tenant about failed payment
+                await prisma.notification.create({
+                    data: {
+                        userId: failedPayment.userId,
+                        type: 'PAYMENT_FAILED',
+                        title: 'Payment Failed',
+                        message: `Your payment for ${failedPayment.property.propertyName} could not be completed. Please try again.`,
+                        link: `/properties/${failedPayment.propertyId}`
+                    }
                 });
 
                 return null;
@@ -168,6 +235,7 @@ export class MpesaService {
             throw error;
         }
     }
+
     /**
      * Query payment status
      */

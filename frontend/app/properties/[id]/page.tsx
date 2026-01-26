@@ -36,6 +36,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { PROPERTY_TYPE_LABELS, PROPERTY_STATUS_LABELS, APPOINTMENT_STATUS_LABELS } from '@/types';
 import type { Property, Inquiry, Appointment } from '@/types';
 import toast from 'react-hot-toast';
+import {toast as sonnerToast} from 'sonner';
 import { PaymentModal } from '@/components/payment/PaymentModal';
 
 // Journey stage type
@@ -222,10 +223,54 @@ export default function PropertyDetailPage() {
     setShowPaymentModal(true);
   };
 
-  const handlePaymentSuccess = (paymentId: string) => {
-    toast.success('Payment successful!');
+  const handlePaymentSuccess = async (paymentId: string, paymentStatus?: any) => {
+    // Close modal
     setShowPaymentModal(false);
-    // Optionally update property status or navigate
+
+    // Show success with receipt
+    const receiptMessage = paymentStatus?.mpesaReceiptNumber
+      ? `Receipt: ${paymentStatus.mpesaReceiptNumber}`
+      : 'Payment confirmed';
+
+    sonnerToast.success(`Payment Successful! ${receiptMessage}`, {
+      duration: 5000,
+      description: `KES ${amount.toLocaleString()} - ${selectedPaymentType}`
+    });
+
+    // Refresh property to show updated status
+    try {
+      const updatedProperty = await apiClient.getPropertyById(property!.id);
+      setProperty(updatedProperty);
+
+      // Show next steps
+      const nextSteps: Record<string, { message: string; path: string }> = {
+        'BOOKING': {
+          message: 'Property reserved! Schedule a viewing to proceed.',
+          path: '/dashboard/appointments'
+        },
+        'DEPOSIT': {
+          message: 'Deposit received! Owner will confirm soon.',
+          path: '/dashboard'
+        },
+        'RENT': {
+          message: 'Rent payment received!',
+          path: '/dashboard/payments'
+        }
+      };
+
+      const nextStep = nextSteps[selectedPaymentType];
+      if (nextStep) {
+        sonnerToast.info(nextStep.message, {
+          duration: 8000,
+          action: {
+            label: 'View',
+            onClick: () => router.push(nextStep.path)
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refresh property:', error);
+    }
   };
 
   const nextImage = () => {
@@ -266,7 +311,7 @@ export default function PropertyDetailPage() {
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays === 0) return 'today';
     if (diffInDays === 1) return 'yesterday';
     if (diffInDays < 7) return `${diffInDays} days ago`;
@@ -531,11 +576,10 @@ export default function PropertyDetailPage() {
                       <button
                         key={index}
                         onClick={() => setSelectedImageIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-colors ${
-                          index === selectedImageIndex
+                        className={`w-2 h-2 rounded-full transition-colors ${index === selectedImageIndex
                             ? 'bg-white'
                             : 'bg-white/50 hover:bg-white/75'
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>
@@ -726,7 +770,7 @@ export default function PropertyDetailPage() {
                   key={prop.id}
                   property={prop}
                   onClick={() => router.push(`/properties/${prop.id}`)}
-                  onContact={() => {}}
+                  onContact={() => { }}
                 />
               ))}
             </div>
@@ -777,11 +821,11 @@ export default function PropertyDetailPage() {
               selectedPaymentType === 'DEPOSIT'
                 ? property.price * 2
                 : selectedPaymentType === 'BOOKING'
-                ? 5000
-                : property.price
+                  ? 5000
+                  : property.price
             }
             paymentType={selectedPaymentType}
-            onSuccess={handlePaymentSuccess}
+           onSuccess={(paymentId, paymentStatus) => handlePaymentSuccess(paymentId, paymentStatus)}
           />
         </>
       )}
